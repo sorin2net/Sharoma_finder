@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "1040474695872",
+    "firebase_url": "https://shaorma-finder-default-rtdb.firebaseio.com",
+    "project_id": "shaorma-finder",
+    "storage_bucket": "shaorma-finder.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1040474695872:android:3dd75b2d50932455d62525",
+        "android_client_info": {
+          "package_name": "com.example.sharoma_finder"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCRKkedwVu8TTs7LzkvC3_3hT7a84XK5z4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
