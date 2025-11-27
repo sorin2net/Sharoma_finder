@@ -7,7 +7,7 @@ plugins {
 
 android {
     namespace = "com.example.sharoma_finder"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.example.sharoma_finder"
