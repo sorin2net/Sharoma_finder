@@ -18,30 +18,18 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            Sharoma_FinderTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Greeting(
-                        name = "Android",
-                        modifier = Modifier.padding(innerPadding)
-                    )
-                }
-            }
+
         }
     }
 }
 
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
+sealed class Screen{
+    data object Dashboard:Screen()
 }
 
-@Preview(showBackground = true)
+
 @Composable
-fun GreetingPreview() {
-    Sharoma_FinderTheme {
-        Greeting("Android")
-    }
+fun MainApp(){
+    
 }
+
