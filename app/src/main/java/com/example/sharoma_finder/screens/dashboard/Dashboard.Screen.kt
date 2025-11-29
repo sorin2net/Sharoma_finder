@@ -14,8 +14,7 @@ fun DashboardScreen(){
     Scaffold(
         contentColor = colorResource(R.color.black2),
         bottomBar = { BottomBar() }
-    ) {
-        paddingValues ->
+    ) { paddingValues ->
         LazyColumn (
             modifier = Modifier
                 .fillMaxSize()
@@ -24,5 +23,4 @@ fun DashboardScreen(){
             item{ TopBar() }
         }
     }
-
 }
