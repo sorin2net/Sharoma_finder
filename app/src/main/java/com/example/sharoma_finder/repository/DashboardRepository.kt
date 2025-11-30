@@ -3,7 +3,7 @@ package com.example.sharoma_finder.repository
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import com.example.sharoma_finder.domain.CategoryModel
-import com.example.sharoma_finder.viewModel.BannerModel
+import com.example.sharoma_finder.domain.BannerModel
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.FirebaseDatabase
@@ -37,7 +37,7 @@ class DashboardRepository {
 
     fun loadBanner(): LiveData<MutableList<BannerModel>>{
         val listData=MutableLiveData<MutableList<BannerModel>>()
-        val ref=firebaseDatabase.getReference("Banner")
+        val ref=firebaseDatabase.getReference("Banners")
         ref.addValueEventListener(object:ValueEventListener{
             override fun onDataChange(snapshot: DataSnapshot) {
                 val list= mutableListOf<BannerModel>()

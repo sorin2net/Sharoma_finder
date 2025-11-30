@@ -14,6 +14,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.colorResource
 import com.example.sharoma_finder.R
+import com.example.sharoma_finder.domain.BannerModel
 import com.example.sharoma_finder.domain.CategoryModel
 import com.example.sharoma_finder.repository.DashboardRepository
 
@@ -24,7 +25,9 @@ fun DashboardScreen(onCategoryClick:(id:String,title:String)->Unit )
 
     val categories=remember{mutableStateListOf<CategoryModel>()}
 
+    val banners= remember { mutableStateListOf<BannerModel>() }
     var showCategoryLoading by remember { mutableStateOf(true) }
+    var showBannerLoading by remember { mutableStateOf(true) }
 
     LaunchedEffect(Unit) {
         viewModel.loadCategory().observeForever{
@@ -33,6 +36,15 @@ fun DashboardScreen(onCategoryClick:(id:String,title:String)->Unit )
             showCategoryLoading=false
         }
     }
+
+    LaunchedEffect(Unit) {
+        viewModel.loadBanner().observeForever{
+            banners.clear()
+            banners.addAll(it)
+            showBannerLoading=false
+        }
+    }
+
     Scaffold(
         containerColor = colorResource(R.color.black2),
         bottomBar = { BottomBar() }
@@ -43,7 +55,10 @@ fun DashboardScreen(onCategoryClick:(id:String,title:String)->Unit )
                 .padding(paddingValues=paddingValues)
         ) {
             item{ TopBar() }
-            item { CategorySection (categories,showCategoryLoading, onCategoryClick  ) } }
+            item { CategorySection (categories,showCategoryLoading, onCategoryClick  ) }
+            item { Banner(banners,showBannerLoading) }
+
+        }
 
         }
     }
