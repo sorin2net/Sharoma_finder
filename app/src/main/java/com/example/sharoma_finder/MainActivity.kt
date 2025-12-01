@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.tooling.preview.Preview
 import com.example.sharoma_finder.screens.dashboard.DashboardScreen
+import com.example.sharoma_finder.screens.results.ResultList
 import com.example.sharoma_finder.ui.theme.Sharoma_FinderTheme
 import com.google.accompanist.systemuicontroller.rememberSystemUiController
 
@@ -31,6 +32,7 @@ class MainActivity : ComponentActivity() {
 
 sealed class Screen{
     data object Dashboard:Screen()
+    data class Results(val id:String,val title:String):Screen()
 }
 
 
@@ -53,7 +55,23 @@ fun MainApp(){
     }
     when(val screen=currentScreen){
         Screen.Dashboard->{
-            DashboardScreen(onCategoryClick = {_,_->})
+            DashboardScreen(onCategoryClick = {id,title->
+                backStack.add(Screen.Results(id,title))
+            })
+        }
+        is Screen.Results->{
+            ResultList(
+                id=screen.id,
+                title=screen.title,
+                onBackClick = {
+                    popBackStack()
+                },
+                onStoreClick = {
+                    store->
+
+                }
+
+            )
         }
     }
 }
