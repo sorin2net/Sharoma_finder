@@ -15,4 +15,7 @@ class ResultsViewModel {
     fun loadPopular(id:String):LiveData<MutableList<StoreModel>>{
         return repository.loadPopular(id)
     }
+    fun loadNearest(id:String):LiveData<MutableList<StoreModel>>{
+        return repository.loadNearest(id)
+    }
 }

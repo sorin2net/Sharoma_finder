@@ -30,9 +30,11 @@ fun ResultList(
 
     val subCategory=remember{ mutableStateListOf<CategoryModel>() }
     val popular=remember{ mutableStateListOf<StoreModel>() }
+    val nearest= remember { mutableStateListOf<StoreModel>() }
 
     var showSubCategoryLoading by remember { mutableStateOf(true)}
     var showPopularLoading by remember { mutableStateOf(true) }
+    var showNearestLoading by remember { mutableStateOf(true) }
 
     LaunchedEffect(id) {
         viewModel.loadSubCategory(id).observeForever{
@@ -50,6 +52,14 @@ fun ResultList(
         }
     }
 
+    LaunchedEffect(id) {
+        viewModel.loadNearest(id).observeForever{
+            nearest.clear()
+            nearest.addAll(it)
+            showNearestLoading=false
+        }
+    }
+
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -59,12 +69,14 @@ fun ResultList(
         item{ Search() }
         item { SubCategory(subCategory,showSubCategoryLoading) }
         item { PopularSection(popular,showPopularLoading, onStoreClick )  }
+        item { NearestList(nearest,showNearestLoading,onStoreClick) }
+
     }
 }
 
 @Preview
 @Composable
-fun ResultListPreeview(){
+fun ResultListPreview(){
     ResultList(
         id="1",
         title="Sample Title",
