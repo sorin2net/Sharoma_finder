@@ -10,81 +10,84 @@ import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.Query
 import com.google.firebase.database.ValueEventListener
 
-class ResultsRepository{
-    private val firebaseDatabase=FirebaseDatabase.getInstance()
+class ResultsRepository {
+    private val firebaseDatabase = FirebaseDatabase.getInstance()
 
-    fun loadSubCategory(id:String):LiveData<MutableList<CategoryModel>>{
-        val listData=MutableLiveData<MutableList<CategoryModel>>()
-        val ref=firebaseDatabase.getReference("SubCategory")
-        val query: Query=ref.orderByChild("CategoryId").equalTo(id)
-        query.addListenerForSingleValueEvent(object:ValueEventListener {
+    
+    fun loadSubCategory(id: String): LiveData<Resource<MutableList<CategoryModel>>> {
+        val listData = MutableLiveData<Resource<MutableList<CategoryModel>>>()
+
+
+        listData.value = Resource.Loading()
+
+        val ref = firebaseDatabase.getReference("SubCategory")
+        val query: Query = ref.orderByChild("CategoryId").equalTo(id)
+
+        query.addListenerForSingleValueEvent(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
-                val lists= mutableListOf<CategoryModel>()
+                val lists = mutableListOf<CategoryModel>()
                 for (child in snapshot.children) {
                     val model = child.getValue(CategoryModel::class.java)
                     if (model != null) {
                         lists.add(model)
                     }
                 }
-                    listData.value=lists
 
+                listData.value = Resource.Success(lists)
             }
 
             override fun onCancelled(error: DatabaseError) {
-                TODO("Not yet implemented")
-            }
 
+                listData.value = Resource.Error(error.message)
+            }
         })
         return listData
     }
 
-    fun loadPopular(id:String):LiveData<MutableList<StoreModel>>{
-        val listData=MutableLiveData<MutableList<StoreModel>>()
-        val ref=firebaseDatabase.getReference("Stores")
-        val query: Query=ref.orderByChild("CategoryId").equalTo(id)
-        query.addListenerForSingleValueEvent(object:ValueEventListener {
+    fun loadPopular(id: String): LiveData<Resource<MutableList<StoreModel>>> {
+        val listData = MutableLiveData<Resource<MutableList<StoreModel>>>()
+        listData.value = Resource.Loading() // Start Loading
+
+        val ref = firebaseDatabase.getReference("Stores")
+        val query: Query = ref.orderByChild("CategoryId").equalTo(id)
+
+        query.addListenerForSingleValueEvent(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
-                val lists= mutableListOf<StoreModel>()
+                val lists = mutableListOf<StoreModel>()
                 for (child in snapshot.children) {
                     val model = child.getValue(StoreModel::class.java)
-                    if (model != null) {
-                        lists.add(model)
-                    }
+                    model?.let { lists.add(it) }
                 }
-                listData.value=lists
-
+                listData.value = Resource.Success(lists) // Stop Loading
             }
 
             override fun onCancelled(error: DatabaseError) {
-                TODO("Not yet implemented")
+                listData.value = Resource.Error(error.message)
             }
-
         })
         return listData
     }
 
+    fun loadNearest(id: String): LiveData<Resource<MutableList<StoreModel>>> {
+        val listData = MutableLiveData<Resource<MutableList<StoreModel>>>()
+        listData.value = Resource.Loading()
 
-    fun loadNearest(id:String):LiveData<MutableList<StoreModel>>{
-        val listData=MutableLiveData<MutableList<StoreModel>>()
-        val ref=firebaseDatabase.getReference("Nearest")
-        val query: Query=ref.orderByChild("CategoryId").equalTo(id)
-        query.addListenerForSingleValueEvent(object:ValueEventListener {
+        val ref = firebaseDatabase.getReference("Nearest")
+        val query: Query = ref.orderByChild("CategoryId").equalTo(id)
+
+        query.addListenerForSingleValueEvent(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
-                val lists= mutableListOf<StoreModel>()
+                val lists = mutableListOf<StoreModel>()
                 for (child in snapshot.children) {
                     val model = child.getValue(StoreModel::class.java)
-                    if (model != null) {
-                        lists.add(model)
-                    }
+                    model?.let { lists.add(it) }
                 }
-                listData.value=lists
-
+                listData.value = Resource.Success(lists)
             }
 
             override fun onCancelled(error: DatabaseError) {
-                TODO("Not yet implemented")
+                listData.value = Resource.Error(error.message)
             }
-
         })
         return listData
     }
