@@ -63,4 +63,6 @@ dependencies {
     implementation("androidx.constraintlayout:constraintlayout-compose:1.1.1")
     implementation("com.google.accompanist:accompanist-systemuicontroller:0.36.0")
     implementation("com.google.maps.android:maps-compose:6.12.2")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.6.2")
+    implementation("androidx.compose.runtime:runtime-livedata:1.5.4")
 }

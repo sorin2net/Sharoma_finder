@@ -7,43 +7,40 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.colorResource
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.sharoma_finder.R
 import com.example.sharoma_finder.domain.BannerModel
 import com.example.sharoma_finder.domain.CategoryModel
-import com.example.sharoma_finder.repository.DashboardRepository
+import com.example.sharoma_finder.viewModel.DashboardViewModel
 
 @Composable
 fun DashboardScreen(onCategoryClick:(id:String,title:String)->Unit )
 {
-    val viewModel= DashboardRepository()
+    val viewModel: DashboardViewModel = viewModel()
 
-    val categories=remember{mutableStateListOf<CategoryModel>()}
+    val categoryList by viewModel.loadCategory().observeAsState(initial = emptyList())
+    val bannerList by viewModel.loadBanner().observeAsState(initial = emptyList())
 
-    val banners= remember { mutableStateListOf<BannerModel>() }
-    var showCategoryLoading by remember { mutableStateOf(true) }
-    var showBannerLoading by remember { mutableStateOf(true) }
+    val categories = remember { mutableStateListOf<CategoryModel>() }
+    val banners = remember { mutableStateListOf<BannerModel>() }
 
-    LaunchedEffect(Unit) {
-        viewModel.loadCategory().observeForever{
-            categories.clear()
-            categories.addAll(it)
-            showCategoryLoading=false
-        }
+    LaunchedEffect(categoryList) {
+        categories.clear()
+        categories.addAll(categoryList)
     }
 
-    LaunchedEffect(Unit) {
-        viewModel.loadBanner().observeForever{
-            banners.clear()
-            banners.addAll(it)
-            showBannerLoading=false
-        }
+    LaunchedEffect(bannerList) {
+        banners.clear()
+        banners.addAll(bannerList)
     }
+
+    val showCategoryLoading = categories.isEmpty()
+    val showBannerLoading = banners.isEmpty()
 
     Scaffold(
         containerColor = colorResource(R.color.black2),
@@ -54,11 +51,9 @@ fun DashboardScreen(onCategoryClick:(id:String,title:String)->Unit )
                 .fillMaxSize()
                 .padding(paddingValues=paddingValues)
         ) {
-            item{ TopBar() }
-            item { CategorySection (categories,showCategoryLoading, onCategoryClick  ) }
-            item { Banner(banners,showBannerLoading) }
-
-        }
-
+            item { TopBar() }
+            item { CategorySection (categories, showCategoryLoading, onCategoryClick) }
+            item { Banner(banners, showBannerLoading) }
         }
     }
+}
