@@ -20,9 +20,14 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     private val resultsRepository = ResultsRepository()
     private val favoritesManager = FavoritesManager(application.applicationContext)
 
+    // Listele pentru UI
     val favoriteStoreIds = mutableStateListOf<String>()
     val favoriteStores = mutableStateListOf<StoreModel>()
+
+    // Lista internă cu toate magazinele descărcate
     private val allStores = mutableStateListOf<StoreModel>()
+
+    // Variabila care controlează Loading-ul din Wishlist
     val isDataLoaded = mutableStateOf(false)
 
     init {
@@ -35,157 +40,99 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         favoriteStoreIds.clear()
         val savedFavorites = favoritesManager.getFavorites()
         favoriteStoreIds.addAll(savedFavorites)
-        Log.d("DashboardViewModel", "✅ Loaded ${favoriteStoreIds.size} saved favorites from SharedPreferences")
-        savedFavorites.forEach {
-            Log.d("DashboardViewModel", "   - Saved favorite ID: $it")
-        }
+        Log.d("DashboardViewModel", "✅ Loaded ${favoriteStoreIds.size} saved favorites")
     }
 
     private fun loadAllStoresData() {
-        var loadedCount = 0
-        val totalLoads = 4
+        // Avem 6 cereri de făcut (Popular/Nearest pentru cat 0, 1, 2)
+        var finishedQueries = 0
+        val totalQueries = 6
 
-        fun checkIfAllLoaded() {
-            loadedCount++
-            Log.d("DashboardViewModel", "📦 Loaded $loadedCount/$totalLoads sources")
-            if (loadedCount >= totalLoads) {
+        // Funcție internă care verifică dacă s-a terminat tot
+        fun checkAllFinished() {
+            finishedQueries++
+            // Log.d("DashboardViewModel", "Progress: $finishedQueries / $totalQueries requests finished")
+
+            if (finishedQueries >= totalQueries) {
                 isDataLoaded.value = true
-                Log.d("DashboardViewModel", "✅ ALL DATA LOADED! Total stores in memory: ${allStores.size}")
-                allStores.forEach { store ->
-                    Log.d("DashboardViewModel", "   Store: ${store.Title} | Key: ${store.getUniqueId()}")
-                }
+                Log.d("DashboardViewModel", "🏁 ALL DATA LOADED. Hide loading spinner.")
                 updateFavoriteStores()
             }
         }
 
-        resultsRepository.loadPopular("1", limit = null).observeForever { resource ->
-            if (resource is Resource.Success) {
-                resource.data?.forEach { store ->
-                    if (!allStores.any { it.getUniqueId() == store.getUniqueId() }) {
-                        allStores.add(store)
-                        Log.d("DashboardViewModel", "➕ Added Popular cat 1: ${store.Title} | Key: ${store.getUniqueId()}")
+        // Funcție helper pentru a face cererile
+        fun observeAndAdd(categoryId: String, mode: String) {
+            val liveData = if (mode == "popular") {
+                resultsRepository.loadPopular(categoryId, limit = null)
+            } else {
+                resultsRepository.loadNearest(categoryId, limit = null)
+            }
+
+            liveData.observeForever { resource ->
+                if (resource !is Resource.Loading) {
+                    if (resource is Resource.Success) {
+                        resource.data?.let { newStores ->
+                            // Adăugăm în allStores doar dacă nu există deja
+                            newStores.forEach { store ->
+                                if (allStores.none { it.getUniqueId() == store.getUniqueId() }) {
+                                    allStores.add(store)
+                                }
+                            }
+                            // Actualizăm favoritele imediat ce avem date noi (ca să apară în Wishlist instant)
+                            if (newStores.isNotEmpty()) {
+                                updateFavoriteStores()
+                            }
+                        }
                     }
+                    // Marcăm cererea ca terminată indiferent de rezultat
+                    checkAllFinished()
                 }
-                checkIfAllLoaded()
-            } else if (resource is Resource.Error) {
-                Log.e("DashboardViewModel", "❌ Error loading Popular cat 1: ${resource.message}")
-                checkIfAllLoaded()
             }
         }
 
-        resultsRepository.loadNearest("1", limit = null).observeForever { resource ->
-            if (resource is Resource.Success) {
-                resource.data?.forEach { store ->
-                    if (!allStores.any { it.getUniqueId() == store.getUniqueId() }) {
-                        allStores.add(store)
-                        Log.d("DashboardViewModel", "➕ Added Nearest cat 1: ${store.Title} | Key: ${store.getUniqueId()}")
-                    }
-                }
-                checkIfAllLoaded()
-            } else if (resource is Resource.Error) {
-                Log.e("DashboardViewModel", "❌ Error loading Nearest cat 1: ${resource.message}")
-                checkIfAllLoaded()
-            }
-        }
+        // --- AICI ESTE FIX-UL: Adăugăm și categoria "0" ---
+        observeAndAdd("0", "popular")
+        observeAndAdd("0", "nearest")
 
-        resultsRepository.loadPopular("2", limit = null).observeForever { resource ->
-            if (resource is Resource.Success) {
-                resource.data?.forEach { store ->
-                    if (!allStores.any { it.getUniqueId() == store.getUniqueId() }) {
-                        allStores.add(store)
-                        Log.d("DashboardViewModel", "➕ Added Popular cat 2: ${store.Title} | Key: ${store.getUniqueId()}")
-                    }
-                }
-                checkIfAllLoaded()
-            } else if (resource is Resource.Error) {
-                Log.e("DashboardViewModel", "❌ Error loading Popular cat 2: ${resource.message}")
-                checkIfAllLoaded()
-            }
-        }
+        observeAndAdd("1", "popular")
+        observeAndAdd("1", "nearest")
 
-        resultsRepository.loadNearest("2", limit = null).observeForever { resource ->
-            if (resource is Resource.Success) {
-                resource.data?.forEach { store ->
-                    if (!allStores.any { it.getUniqueId() == store.getUniqueId() }) {
-                        allStores.add(store)
-                        Log.d("DashboardViewModel", "➕ Added Nearest cat 2: ${store.Title} | Key: ${store.getUniqueId()}")
-                    }
-                }
-                checkIfAllLoaded()
-            } else if (resource is Resource.Error) {
-                Log.e("DashboardViewModel", "❌ Error loading Nearest cat 2: ${resource.message}")
-                checkIfAllLoaded()
-            }
-        }
+        observeAndAdd("2", "popular")
+        observeAndAdd("2", "nearest")
     }
 
     private fun updateFavoriteStores() {
-        Log.d("DashboardViewModel", "🔄 Updating favorite stores...")
-        Log.d("DashboardViewModel", "   Total stores available: ${allStores.size}")
-        Log.d("DashboardViewModel", "   Favorite IDs to match: ${favoriteStoreIds.size}")
+        // Filtrăm din toate magazinele (allStores) doar pe cele care au ID-ul în lista de favorite
+        val favorites = allStores.filter { store ->
+            favoriteStoreIds.contains(store.getUniqueId())
+        }
 
         favoriteStores.clear()
-        val favorites = allStores.filter { store ->
-            val uniqueId = store.getUniqueId()
-            val isMatch = favoriteStoreIds.contains(uniqueId)
-            if (isMatch) {
-                Log.d("DashboardViewModel", "   ✅ MATCH: ${store.Title} with ID: $uniqueId")
-            }
-            isMatch
-        }
-
         favoriteStores.addAll(favorites)
 
-        Log.d("DashboardViewModel", "✅ Updated favorite stores list:")
-        Log.d("DashboardViewModel", "   - Total favorites in UI: ${favoriteStores.size}")
-        favoriteStores.forEach {
-            Log.d("DashboardViewModel", "   - ${it.Title} | ${it.getUniqueId()}")
-        }
-
-        if (favoriteStores.isEmpty() && favoriteStoreIds.isNotEmpty()) {
-            Log.e("DashboardViewModel", "⚠️ WARNING: Have ${favoriteStoreIds.size} favorite IDs but 0 stores found!")
-            Log.e("DashboardViewModel", "   Favorite IDs: $favoriteStoreIds")
-            Log.e("DashboardViewModel", "   Available store IDs:")
-            allStores.forEach { store ->
-                Log.e("DashboardViewModel", "     - ${store.Title}: ${store.getUniqueId()}")
-            }
-        }
+        Log.d("DashboardViewModel", "🔄 Wishlist updated: ${favoriteStores.size} stores shown.")
     }
 
     fun isFavorite(store: StoreModel): Boolean {
-        val uniqueKey = store.getUniqueId()
-        val isFav = favoriteStoreIds.contains(uniqueKey)
-        Log.d("DashboardViewModel", "❓ isFavorite(${store.Title}) | Key: $uniqueKey | Result: $isFav")
-        return isFav
+        return favoriteStoreIds.contains(store.getUniqueId())
     }
 
     fun toggleFavorite(store: StoreModel) {
         val uniqueKey = store.getUniqueId()
-        Log.d("DashboardViewModel", "🔄 Toggle favorite: ${store.Title} | Key: $uniqueKey")
 
         if (favoriteStoreIds.contains(uniqueKey)) {
             favoritesManager.removeFavorite(uniqueKey)
             favoriteStoreIds.remove(uniqueKey)
-            Log.d("DashboardViewModel", "❌ Removed from favorites")
         } else {
             favoritesManager.addFavorite(uniqueKey)
             favoriteStoreIds.add(uniqueKey)
-            Log.d("DashboardViewModel", "➕ Added to favorites")
         }
 
-        Log.d("DashboardViewModel", "📊 Current favorites count: ${favoriteStoreIds.size}")
+        // Actualizăm lista de obiecte StoreModel pentru Wishlist
         updateFavoriteStores()
     }
 
-    fun getAllFavoriteStores(): List<StoreModel> {
-        return favoriteStores
-    }
-
-    fun loadCategory(): LiveData<MutableList<CategoryModel>> {
-        return repository.loadCategory()
-    }
-
-    fun loadBanner(): LiveData<MutableList<BannerModel>> {
-        return repository.loadBanner()
-    }
+    // Funcții standard
+    fun loadCategory(): LiveData<MutableList<CategoryModel>> = repository.loadCategory()
+    fun loadBanner(): LiveData<MutableList<BannerModel>> = repository.loadBanner()
 }
