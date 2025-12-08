@@ -3,6 +3,9 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.google.gms.google.services)
+
+    // Aici doar activăm plugin-ul (versiunea e luată din fișierul de mai sus)
+    id("com.google.firebase.crashlytics")
 }
 
 android {
@@ -50,7 +53,18 @@ dependencies {
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
+
+    // --- FIREBASE SETUP ---
     implementation(libs.firebase.database)
+
+    // Firebase BoM (gestionează versiunile librăriilor de mai jos)
+    implementation(platform("com.google.firebase:firebase-bom:33.7.0"))
+
+    // Librăriile Crashlytics și Analytics (fără versiune, o iau din BoM)
+    implementation("com.google.firebase:firebase-crashlytics")
+    implementation("com.google.firebase:firebase-analytics")
+    // ---------------------
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -58,6 +72,8 @@ dependencies {
     androidTestImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
+
+    // Alte librării
     implementation("io.coil-kt:coil-compose:2.7.0")
     implementation("com.google.accompanist:accompanist-pager-indicators:0.36.0")
     implementation("androidx.constraintlayout:constraintlayout-compose:1.1.1")

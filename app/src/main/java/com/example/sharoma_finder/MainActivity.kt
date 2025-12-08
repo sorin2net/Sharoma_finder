@@ -3,6 +3,7 @@ package com.example.sharoma_finder
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -37,13 +38,16 @@ class MainActivity : ComponentActivity() {
         ) { permissions ->
             when {
                 permissions.getOrDefault(Manifest.permission.ACCESS_FINE_LOCATION, false) -> {
-                    // Avem locatie precisa
+                    // Avem locație precisă
+                    Log.d("MainActivity", "Fine location permission granted")
                 }
                 permissions.getOrDefault(Manifest.permission.ACCESS_COARSE_LOCATION, false) -> {
-                    // Avem locatie aproximativa
+                    // Avem locație aproximativă
+                    Log.d("MainActivity", "Coarse location permission granted")
                 }
                 else -> {
                     // Nu avem permisiune
+                    Log.w("MainActivity", "Location permission denied")
                 }
             }
         }
@@ -79,25 +83,45 @@ fun MainApp() {
             WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
     }
 
-    // --- LOGICA GPS ---
+    // --- IMPROVED GPS LOGIC ---
     LaunchedEffect(Unit) {
         val fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
 
-        if (ActivityCompat.checkSelfPermission(
-                context,
-                Manifest.permission.ACCESS_FINE_LOCATION
-            ) == PackageManager.PERMISSION_GRANTED || ActivityCompat.checkSelfPermission(
-                context,
-                Manifest.permission.ACCESS_COARSE_LOCATION
-            ) == PackageManager.PERMISSION_GRANTED
-        ) {
-            fusedLocationClient.lastLocation.addOnSuccessListener { location ->
-                if (location != null) {
-                    dashboardViewModel.updateUserLocation(location)
-                }
+        // Verificăm permisiunile
+        val hasPermission = ActivityCompat.checkSelfPermission(
+            context,
+            Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED || ActivityCompat.checkSelfPermission(
+            context,
+            Manifest.permission.ACCESS_COARSE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+
+        if (hasPermission) {
+            try {
+                fusedLocationClient.lastLocation
+                    .addOnSuccessListener { location ->
+                        if (location != null) {
+                            dashboardViewModel.updateUserLocation(location)
+                            Log.d("MainActivity", "GPS location obtained successfully: ${location.latitude}, ${location.longitude}")
+                        } else {
+                            // GPS e pornit dar nu avem încă locație (poate fi null pe emulator uneori)
+                            Log.w("MainActivity", "GPS enabled but no location available yet")
+                            // Aici s-ar putea adăuga logică pentru a cere actualizări active de locație, dar e mai complex
+                        }
+                    }
+                    .addOnFailureListener { exception ->
+                        Log.e("MainActivity", "Failed to get GPS location", exception)
+                        // App-ul va funcționa fără sortare după distanță
+                    }
+            } catch (e: SecurityException) {
+                Log.e("MainActivity", "Security exception when accessing GPS", e)
             }
+        } else {
+            Log.w("MainActivity", "GPS permissions not granted - distance sorting disabled")
+            // App-ul va funcționa, dar fără sortare după distanță
         }
     }
+    // -------------------------
 
     systemUiController.setStatusBarColor(color = colorResource(R.color.white))
 

@@ -17,7 +17,7 @@ class DashboardRepository {
         val listData = MutableLiveData<MutableList<CategoryModel>>()
         val ref = firebaseDatabase.getReference("Category")
 
-        ref.addValueEventListener(object : ValueEventListener {
+        ref.addListenerForSingleValueEvent(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 val list = mutableListOf<CategoryModel>()
                 for (childSnapshot in snapshot.children) {
@@ -42,7 +42,7 @@ class DashboardRepository {
         val listData = MutableLiveData<MutableList<BannerModel>>()
         val ref = firebaseDatabase.getReference("Banners")
 
-        ref.addValueEventListener(object : ValueEventListener {
+        ref.addListenerForSingleValueEvent(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 val list = mutableListOf<BannerModel>()
                 for (childSnapshot in snapshot.children) {
