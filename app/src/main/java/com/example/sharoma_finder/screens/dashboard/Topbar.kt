@@ -45,29 +45,31 @@ fun TopBar(
 
         // --- 1. LOGICA PENTRU POZA DE PROFIL ---
         if (userImagePath != null) {
-            // Dacă utilizatorul a ales o poză, o afișăm pe aceea
+            // Dacă utilizatorul a ales o poză
             AsyncImage(
                 model = File(userImagePath),
-                contentDescription = "Profile Picture",
+                // --- ACCESIBILITATE: Descriere dinamică ---
+                contentDescription = "Profile picture of $userName",
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .padding(horizontal = 16.dp, vertical = 16.dp)
-                    .size(60.dp) // Dimensiune fixă ca să arate bine
-                    .clip(CircleShape) // O facem rotundă
+                    .size(60.dp)
+                    .clip(CircleShape)
                     .constrainAs(profile) {
                         top.linkTo(parent.top)
                         end.linkTo(parent.end)
                     }
             )
         } else {
-            // Dacă nu, afișăm poza default din resurse
+            // Dacă nu, afișăm poza default
             Image(
                 painter = painterResource(R.drawable.profile),
-                contentDescription = "Default Profile",
+                // --- ACCESIBILITATE: Descriere clară ---
+                contentDescription = "Default profile picture",
                 modifier = Modifier
                     .padding(horizontal = 16.dp, vertical = 16.dp)
-                    .size(60.dp) // Dimensiune fixă
-                    .clip(CircleShape) // O facem rotundă
+                    .size(60.dp)
+                    .clip(CircleShape)
                     .constrainAs(profile) {
                         top.linkTo(parent.top)
                         end.linkTo(parent.end)
@@ -75,9 +77,9 @@ fun TopBar(
             )
         }
 
-        // --- 2. NUMELE UTILIZATORULUI (DINAMIC) ---
+        // --- 2. NUMELE UTILIZATORULUI ---
         Text(
-            text = "Neata, $userName", // Aici inserăm variabila
+            text = "Neata, $userName",
             fontSize = 20.sp,
             color = colorResource(R.color.gold),
             modifier = Modifier
@@ -85,7 +87,6 @@ fun TopBar(
                     top.linkTo(profile.top)
                     start.linkTo(parent.start, margin = 16.dp)
                     bottom.linkTo(profile.bottom)
-                    // Am scos end.linkTo(parent.end) ca să nu se suprapună cu poza dacă numele e lung
                     end.linkTo(profile.start, margin = 8.dp)
                     width = androidx.constraintlayout.compose.Dimension.fillToConstraints
                 }
@@ -101,13 +102,13 @@ fun TopBar(
                 .padding(top = 24.dp)
                 .constrainAs(title2) {
                     top.linkTo(profile.bottom)
-                    start.linkTo(parent.start, margin = 16.dp) // Am adăugat margin explicit
+                    start.linkTo(parent.start, margin = 16.dp)
                     end.linkTo(parent.end)
                     width = androidx.constraintlayout.compose.Dimension.fillToConstraints
                 }
         )
 
-        // --- 4. SECȚIUNEA PORTOFEL (CODUL TĂU VECHI INTEGRAT) ---
+        // --- 4. SECȚIUNEA PORTOFEL ---
         ConstraintLayout(
             modifier = Modifier
                 .padding(horizontal = 24.dp)
@@ -128,6 +129,7 @@ fun TopBar(
 
             Image(
                 painter = painterResource(R.drawable.wallet),
+                // --- ACCESIBILITATE: null pentru că textul de lângă explică deja ---
                 contentDescription = null,
                 modifier = Modifier
                     .padding(start = 16.dp, top = 16.dp)
@@ -138,6 +140,7 @@ fun TopBar(
             )
             Image(
                 painter = painterResource(R.drawable.medal),
+                // --- ACCESIBILITATE: null (decorativ) ---
                 contentDescription = null,
                 modifier = Modifier
                     .padding(start = 16.dp, bottom = 16.dp)
@@ -221,7 +224,6 @@ fun TopBar(
     }
 }
 
-// Preview separat pentru a putea vedea design-ul în Android Studio
 @Preview
 @Composable
 fun TopBarPreview() {

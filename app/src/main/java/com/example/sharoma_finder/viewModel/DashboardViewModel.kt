@@ -15,6 +15,7 @@ import com.example.sharoma_finder.repository.FavoritesManager
 import com.example.sharoma_finder.repository.Resource
 import com.example.sharoma_finder.repository.ResultsRepository
 import com.example.sharoma_finder.repository.UserManager
+import com.google.firebase.analytics.FirebaseAnalytics // Doar acesta este necesar
 
 class DashboardViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -22,6 +23,10 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     private val resultsRepository = ResultsRepository()
     private val favoritesManager = FavoritesManager(application.applicationContext)
     private val userManager = UserManager(application.applicationContext)
+
+    // --- ANALYTICS ---
+    // Modificare aici: folosim getInstance()
+    private val analytics = FirebaseAnalytics.getInstance(application.applicationContext)
 
     // --- 1. LISTE PENTRU UI ---
     val favoriteStoreIds = mutableStateListOf<String>()
@@ -48,7 +53,6 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     var userImagePath = mutableStateOf<String?>(null)
 
     // --- 4. LOCAȚIA UTILIZATORULUI (GPS) ---
-    // Accesibilă public pentru citire (MainActivity o trimite la ResultList)
     var currentUserLocation: Location? = null
         private set
 
@@ -61,6 +65,19 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         loadInitialData()
     }
 
+    // --- 5. FUNCȚIE ANALYTICS (NOU) ---
+    fun logViewStore(store: StoreModel) {
+        val bundle = android.os.Bundle()
+        // Parametrii standard recomandați de Firebase
+        bundle.putString(FirebaseAnalytics.Param.ITEM_ID, store.getUniqueId())
+        bundle.putString(FirebaseAnalytics.Param.ITEM_NAME, store.Title)
+        bundle.putString(FirebaseAnalytics.Param.CONTENT_TYPE, "store")
+        bundle.putString("store_category", store.CategoryId)
+
+        analytics.logEvent(FirebaseAnalytics.Event.SELECT_CONTENT, bundle)
+        Log.d("Analytics", "Logged view for: ${store.Title}")
+    }
+
     // --- FUNCȚIE NOUĂ: Expunem lista completă pentru Search (ResultList) ---
     fun getGlobalStoreList(): List<StoreModel> {
         return allStoresRaw
@@ -69,7 +86,6 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     // --- LOGICA DE ÎNCĂRCARE ȘI GPS ---
 
     private fun loadInitialData() {
-        // Încărcăm TOATE magazinele din nodul "Stores" (baza de date unificată)
         resultsRepository.loadAllStores().observeForever { resource ->
             if (resource is Resource.Success) {
                 resource.data?.let { list ->
@@ -105,7 +121,6 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
 
         Log.d("DashboardVM", "📏 Recalculating distances...")
 
-        // 1. Calculăm distanța pentru fiecare magazin
         allStoresRaw.forEach { store ->
             val storeLoc = Location("store")
             storeLoc.latitude = store.Latitude
@@ -113,31 +128,24 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             store.distanceToUser = location.distanceTo(storeLoc)
         }
 
-        // 2. Re-procesăm listele cu noile distanțe
         processData()
     }
 
     private fun processData() {
-        // A. Sortăm toată lista după distanță (crescător)
         val sortedList = allStoresRaw.sortedBy {
             if (it.distanceToUser < 0) Float.MAX_VALUE else it.distanceToUser
         }
 
-        // B. Populăm Nearest Top 5
         nearestStoresTop5.clear()
         nearestStoresTop5.addAll(sortedList.take(5))
 
-        // C. Populăm lista completă sortată (pentru See All)
         nearestStoresAllSorted.clear()
         nearestStoresAllSorted.addAll(sortedList)
 
-        // D. Populăm Popular Stores (filtrăm după IsPopular din lista deja sortată/calculată)
-        // --- AICI ERA PROBLEMA ANTERIOARĂ: Acum luăm din 'sortedList' care are distanțele calculate ---
         val popular = sortedList.filter { it.IsPopular }
         popularStores.clear()
         popularStores.addAll(popular)
 
-        // E. Actualizăm favoritele (ca să aibă și ele distanța actualizată)
         updateFavoriteStores()
 
         Log.d("DashboardVM", "✅ Data processed. Nearest: ${nearestStoresTop5.size}, Popular: ${popularStores.size}")
@@ -171,12 +179,10 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     private fun updateFavoriteStores() {
-        // Filtrăm din lista completă (allStoresRaw) doar pe cele favorite
         val favorites = allStoresRaw.filter { store ->
             favoriteStoreIds.contains(store.getUniqueId())
         }
 
-        // Sortăm și favoritele după distanță
         val sortedFavorites = favorites.sortedBy {
             if (it.distanceToUser < 0) Float.MAX_VALUE else it.distanceToUser
         }

@@ -40,7 +40,7 @@ fun StoreDetail(item: StoreModel) {
         modifier = Modifier
             .fillMaxWidth()
             .padding(start = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp) // Am redus spațierea puțin
+        verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         Text(
             text = item.Title,
@@ -52,7 +52,7 @@ fun StoreDetail(item: StoreModel) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Image(
                 painter = painterResource(id = R.drawable.location),
-                contentDescription = null,
+                contentDescription = null, // Iconița e decorativă, textul de lângă e important
                 modifier = Modifier.size(16.dp)
             )
             Text(
@@ -64,20 +64,17 @@ fun StoreDetail(item: StoreModel) {
             )
         }
 
-        // --- AICI ESTE MODIFICAREA PENTRU DISTANȚĂ ---
-        // Afișăm distanța doar dacă a fost calculată (e mai mare ca 0)
+        // Afișăm distanța doar dacă a fost calculată
         if (item.distanceToUser > 0) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    // Convertim metri în km și formatăm cu 2 zecimale (ex: 0.01 km sau 2.50 km)
                     text = String.format(Locale.US, "%.2f km away", item.distanceToUser / 1000),
-                    color = colorResource(R.color.gold), // O facem aurie să iasă în evidență
+                    color = colorResource(R.color.gold),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold
                 )
             }
         }
-        // ---------------------------------------------
 
         Text(
             text = item.Activity,
@@ -100,7 +97,8 @@ fun StoreDetail(item: StoreModel) {
 fun StoreImage(item: StoreModel) {
     AsyncImage(
         model = item.ImagePath,
-        contentDescription = null,
+        // --- ACCESIBILITATE: Descriere imagine ---
+        contentDescription = "Image of ${item.Title}",
         modifier = Modifier
             .size(95.dp)
             .clip(RoundedCornerShape(10.dp))
@@ -141,7 +139,8 @@ fun ItemsNearest(
         IconButton(onClick = onFavoriteClick) {
             Icon(
                 imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-                contentDescription = "Favorite",
+                // --- ACCESIBILITATE: Descriere buton dinamică ---
+                contentDescription = if (isFavorite) "Remove ${item.Title} from favorites" else "Add ${item.Title} to favorites",
                 tint = colorResource(R.color.gold),
                 modifier = Modifier.size(24.dp)
             )

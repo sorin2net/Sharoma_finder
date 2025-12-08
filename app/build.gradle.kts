@@ -24,7 +24,12 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // --- AICI SUNT MODIFICĂRILE PENTRU APP SIZE ---
+            // Activează R8 pentru a micșora și obfusca codul
+            isMinifyEnabled = true
+            // Activează ștergerea resurselor (imagini, layout-uri) nefolosite
+            isShrinkResources = true
+
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"

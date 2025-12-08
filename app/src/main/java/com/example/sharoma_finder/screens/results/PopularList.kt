@@ -57,7 +57,8 @@ fun ItemsPopular(
         Box(modifier = Modifier.size(135.dp, 90.dp)) {
             AsyncImage(
                 model = item.ImagePath,
-                contentDescription = null,
+                // --- ACCESIBILITATE: Descriere imagine ---
+                contentDescription = "Photo of ${item.Title}",
                 modifier = Modifier
                     .fillMaxSize()
                     .clip(RoundedCornerShape(10.dp))
@@ -81,7 +82,8 @@ fun ItemsPopular(
             ) {
                 Icon(
                     imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-                    contentDescription = "Favorite",
+                    // --- ACCESIBILITATE: Descriere buton dinamică ---
+                    contentDescription = if (isFavorite) "Remove from favorites" else "Add to favorites",
                     tint = colorResource(R.color.gold),
                     modifier = Modifier.padding(4.dp)
                 )
@@ -104,6 +106,7 @@ fun ItemsPopular(
         ) {
             Image(
                 painter = painterResource(R.drawable.location),
+                // Iconița este decorativă, textul de lângă explică adresa, deci lăsăm null
                 contentDescription = null,
                 modifier = Modifier.size(14.dp)
             )
@@ -118,7 +121,6 @@ fun ItemsPopular(
             )
         }
 
-        // --- AICI ESTE MODIFICAREA PENTRU DISTANȚĂ ---
         // Afișăm distanța sub adresă dacă este calculată
         if (item.distanceToUser > 0) {
             Text(
@@ -129,7 +131,6 @@ fun ItemsPopular(
                 modifier = Modifier.padding(top = 4.dp)
             )
         }
-        // ---------------------------------------------
     }
 }
 

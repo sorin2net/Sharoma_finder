@@ -1,7 +1,9 @@
 package com.example.sharoma_finder.domain
 
+import androidx.annotation.Keep
 import java.io.Serializable
 
+@Keep
 data class StoreModel(
     var Id: Int = 0,
     var CategoryId: String = "",

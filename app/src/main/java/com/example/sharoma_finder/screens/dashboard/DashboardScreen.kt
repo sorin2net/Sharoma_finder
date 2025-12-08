@@ -48,6 +48,14 @@ fun DashboardScreen(
     val showCategoryLoading = categories.isEmpty()
     val showBannerLoading = banners.isEmpty()
 
+    // --- MODIFICARE: Funcție Wrapper pentru Analytics ---
+    // Când se dă click pe un magazin (oriunde în Dashboard), logăm și apoi navigăm
+    val onStoreClickWithLog: (StoreModel) -> Unit = { store ->
+        viewModel.logViewStore(store) // 1. Trimite eveniment la Firebase
+        onStoreClick(store)           // 2. Navighează la hartă
+    }
+    // ---------------------------------------------------
+
     Scaffold(
         containerColor = colorResource(R.color.black2),
         bottomBar = {
@@ -79,7 +87,7 @@ fun DashboardScreen(
                         // 3. Bannerul
                         item { Banner(banners, showBannerLoading) }
 
-                        // 4. ✅ AM ȘTERS NearestList de aici - va apărea doar în categorii
+                        // 4. (Aici NU am adăugat nimic, conform cerinței tale)
                     }
                 }
                 "Support" -> SupportScreen()
@@ -88,7 +96,8 @@ fun DashboardScreen(
                         favoriteStores = viewModel.favoriteStores,
                         isDataLoaded = viewModel.isDataLoaded.value,
                         onFavoriteToggle = { store -> viewModel.toggleFavorite(store) },
-                        onStoreClick = onStoreClick,
+                        // AICI FOLOSIM CLICK-UL CU LOGARE
+                        onStoreClick = onStoreClickWithLog,
                         isStoreFavorite = { store -> viewModel.isFavorite(store) }
                     )
                 }
