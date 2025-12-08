@@ -6,6 +6,7 @@ plugins {
 
     // Aici doar activăm plugin-ul (versiunea e luată din fișierul de mai sus)
     id("com.google.firebase.crashlytics")
+    id("kotlin-kapt")
 }
 
 android {
@@ -88,4 +89,9 @@ dependencies {
     implementation("androidx.compose.runtime:runtime-livedata:1.5.4")
     implementation("androidx.compose.material:material-icons-extended:1.5.4")
     implementation("com.google.android.gms:play-services-location:21.0.1")
+    val room_version = "2.6.1"
+    implementation("androidx.room:room-runtime:$room_version")
+    implementation("androidx.room:room-ktx:$room_version")
+    add("kapt", "androidx.room:room-compiler:$room_version")
+
 }

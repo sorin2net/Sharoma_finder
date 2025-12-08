@@ -3,6 +3,7 @@ package com.example.sharoma_finder.screens.map
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -14,11 +15,13 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.constraintlayout.compose.ConstraintLayout
@@ -35,10 +38,28 @@ import com.google.maps.android.compose.rememberCameraPositionState
 @Composable
 fun MapScreen(
     store: StoreModel,
-
     isFavorite: Boolean = false,
     onFavoriteClick: () -> Unit = {}
 ) {
+    // ✅ ADĂUGAT: Validare coordonate
+    if (store.Latitude == 0.0 || store.Longitude == 0.0) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(colorResource(R.color.black2)),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "Location not available for this store\n\nPlease contact the store directly",
+                fontSize = 18.sp,
+                color = Color.White,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(32.dp)
+            )
+        }
+        return
+    }
+
     val latlng = LatLng(store.Latitude, store.Longitude)
     val cameraPositionState = rememberCameraPositionState {
         position = CameraPosition.fromLatLngZoom(latlng, 15f)
@@ -61,7 +82,7 @@ fun MapScreen(
                 },
             cameraPositionState = cameraPositionState
         ) {
-            Marker(state = markerState, title = "Location Marker")
+            Marker(state = markerState, title = store.Title)
         }
 
         LazyColumn(
@@ -76,7 +97,6 @@ fun MapScreen(
                     bottom.linkTo(parent.bottom)
                 }
         ) {
-
             item {
                 ItemsNearest(
                     item = store,

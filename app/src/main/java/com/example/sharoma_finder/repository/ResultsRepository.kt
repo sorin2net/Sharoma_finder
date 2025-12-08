@@ -14,8 +14,6 @@ import com.google.firebase.database.ValueEventListener
 class ResultsRepository {
     private val firebaseDatabase = FirebaseDatabase.getInstance()
 
-    // --- FUNCȚIA PRINCIPALĂ: Încarcă TOATE magazinele din nodul 'Stores' ---
-    // Aceasta este folosită de DashboardViewModel pentru a calcula distanțele GPS
     fun loadAllStores(): LiveData<Resource<MutableList<StoreModel>>> {
         val listData = MutableLiveData<Resource<MutableList<StoreModel>>>()
         listData.value = Resource.Loading()
@@ -25,26 +23,32 @@ class ResultsRepository {
         ref.addListenerForSingleValueEvent(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 val lists = mutableListOf<StoreModel>()
+                var invalidCount = 0
+
                 for (child in snapshot.children) {
                     val model = child.getValue(StoreModel::class.java)
-                    if (model != null) {
-                        // Salvăm cheia originală din Firebase (ex: "store_01")
+
+                    // ✅ ADĂUGAT: Validare date
+                    if (model != null && model.isValid()) {
                         model.firebaseKey = child.key ?: ""
                         lists.add(model)
+                    } else {
+                        invalidCount++
+                        Log.w("ResultsRepository", "Invalid store data: ${child.key}")
                     }
                 }
-                // Log pentru verificare
-                Log.d("ResultsRepository", "Loaded ${lists.size} total stores")
+
+                Log.d("ResultsRepository", "Loaded ${lists.size} valid stores ($invalidCount invalid)")
                 listData.value = Resource.Success(lists)
             }
+
             override fun onCancelled(error: DatabaseError) {
-                listData.value = Resource.Error(error.message)
+                Log.e("ResultsRepository", "Error loading stores: ${error.message}")
+                listData.value = Resource.Error("Failed to load stores: ${error.message}")
             }
         })
         return listData
     }
-
-    // --- Funcții pentru filtrarea pe categorii (folosite în ecranele de detalii) ---
 
     fun loadSubCategory(id: String): LiveData<Resource<MutableList<CategoryModel>>> {
         val listData = MutableLiveData<Resource<MutableList<CategoryModel>>>()
@@ -61,12 +65,15 @@ class ResultsRepository {
                 }
                 listData.value = Resource.Success(lists)
             }
-            override fun onCancelled(error: DatabaseError) { listData.value = Resource.Error(error.message) }
+
+            override fun onCancelled(error: DatabaseError) {
+                Log.e("ResultsRepository", "Error loading subcategories: ${error.message}")
+                listData.value = Resource.Error(error.message)
+            }
         })
         return listData
     }
 
-    // Încarcă magazinele pentru o anumită categorie (ex: doar Burgeri)
     fun loadPopular(id: String, limit: Int? = null): LiveData<Resource<MutableList<StoreModel>>> {
         val listData = MutableLiveData<Resource<MutableList<StoreModel>>>()
         listData.value = Resource.Loading()
@@ -83,20 +90,24 @@ class ResultsRepository {
                 val lists = mutableListOf<StoreModel>()
                 for (child in snapshot.children) {
                     val model = child.getValue(StoreModel::class.java)
-                    if (model != null) {
+
+                    // ✅ ADĂUGAT: Validare
+                    if (model != null && model.isValid()) {
                         model.firebaseKey = child.key ?: ""
                         lists.add(model)
                     }
                 }
                 listData.value = Resource.Success(lists)
             }
-            override fun onCancelled(error: DatabaseError) { listData.value = Resource.Error(error.message) }
+
+            override fun onCancelled(error: DatabaseError) {
+                Log.e("ResultsRepository", "Error loading popular stores: ${error.message}")
+                listData.value = Resource.Error(error.message)
+            }
         })
         return listData
     }
 
-    // Pentru compatibilitate, loadNearest acum trage tot din "Stores"
-    // (deoarece nodul "Nearest" nu mai există în noul JSON)
     fun loadNearest(id: String, limit: Int? = null): LiveData<Resource<MutableList<StoreModel>>> {
         return loadPopular(id, limit)
     }

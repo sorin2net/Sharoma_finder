@@ -16,13 +16,10 @@ data class StoreModel(
     var ShortAddress: String = "",
     var Hours: String = "",
     var ImagePath: String = "",
-
-    // Câmp nou pentru a identifica magazinele populare din lista unică
     var IsPopular: Boolean = false,
     var firebaseKey: String = ""
 ) : Serializable {
 
-    // Distanța nu vine din baza de date, se calculează local
     var distanceToUser: Float = -1f
 
     fun getUniqueId(): String {
@@ -31,5 +28,14 @@ data class StoreModel(
         } else {
             "${CategoryId}_${Id}"
         }
+    }
+
+    // ✅ ADĂUGAT: Funcție de validare
+    fun isValid(): Boolean {
+        return Title.isNotBlank() &&
+                Latitude != 0.0 &&
+                Longitude != 0.0 &&
+                CategoryId.isNotBlank() &&
+                Address.isNotBlank()
     }
 }
