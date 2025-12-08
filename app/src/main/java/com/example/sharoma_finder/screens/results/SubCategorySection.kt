@@ -29,66 +29,80 @@ import coil.compose.AsyncImage
 import com.example.sharoma_finder.R
 import com.example.sharoma_finder.domain.CategoryModel
 
-
 @Composable
-fun Category(item:CategoryModel,onItemClick:()->Unit){
-Column (
-    modifier = Modifier
-    .size(85.dp,95.dp)
-    .background(color= colorResource(R.color.black3),
-        shape= RoundedCornerShape(10.dp)
-    )
-    .clickable (onClick = onItemClick),
-    horizontalAlignment = Alignment.CenterHorizontally
+fun Category(
+    item: CategoryModel,
+    isSelected: Boolean,
+    onItemClick: () -> Unit
 ) {
-    AsyncImage(
-        model=item.ImagePath,
-        contentDescription = null,
+
+    val backgroundColor = if (isSelected) colorResource(R.color.gold) else colorResource(R.color.black3)
+    val textColor = if (isSelected) Color.Black else Color.White
+
+    Column(
         modifier = Modifier
-            .padding(top=16.dp)
-            .size(45.dp,40.dp)
-    )
-    Spacer(Modifier.padding(top=12.dp))
-    Text(text=item.Name,
-        color = Color.White,
-        fontSize=14.sp,
-        fontWeight = FontWeight.SemiBold
-    )
+            .size(85.dp, 95.dp)
+            .background(
+                color = backgroundColor,
+                shape = RoundedCornerShape(10.dp)
+            )
+            .clickable(onClick = onItemClick),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        AsyncImage(
+            model = item.ImagePath,
+            contentDescription = null,
+            modifier = Modifier
+                .padding(top = 16.dp)
+                .size(45.dp, 40.dp)
+        )
+        Spacer(Modifier.padding(top = 12.dp))
+        Text(
+            text = item.Name,
+            color = textColor,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.SemiBold
+        )
     }
-}
-
-
-@Preview
-@Composable
-fun CategoryPreview(){
-    val item=CategoryModel(Id=0,ImagePath="",Name="Name")
-    Category(item=item, onItemClick = {})
 }
 
 @Composable
 fun SubCategory(
     subCategory: SnapshotStateList<CategoryModel>,
-    showSubCategoryLoading: Boolean
+    showSubCategoryLoading: Boolean,
+    selectedCategoryName: String = "",
+    onCategoryClick: (String) -> Unit = {}
 ) {
-    if(showSubCategoryLoading){
-        Box(Modifier
-            .fillMaxWidth()
-            .height(100.dp),
+    if (showSubCategoryLoading) {
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(100.dp),
             contentAlignment = Alignment.Center
-        ){
+        ) {
             CircularProgressIndicator()
         }
-    }else{
-        LazyRow (
-            modifier = Modifier
-                .fillMaxWidth(),
+    } else {
+        LazyRow(
+            modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
-            contentPadding= PaddingValues(start=16.dp,end=16.dp,top=8.dp)
-        ){
-            items(subCategory.size) { index->
-                Category(item=subCategory[index], onItemClick = {})
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp)
+        ) {
+            items(subCategory.size) { index ->
+                val item = subCategory[index]
+                Category(
+                    item = item,
+                    isSelected = item.Name == selectedCategoryName,
+                    onItemClick = { onCategoryClick(item.Name) }
+                )
             }
         }
     }
+}
 
+@Preview
+@Composable
+fun CategoryPreview() {
+    val item = CategoryModel(Id = 0, ImagePath = "", Name = "Burger")
+    Category(item = item, isSelected = true, onItemClick = {})
 }

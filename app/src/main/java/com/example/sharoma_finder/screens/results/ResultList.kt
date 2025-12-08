@@ -10,7 +10,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -32,10 +34,11 @@ fun ResultList(
 ) {
     val viewModel: ResultsViewModel = viewModel()
 
-    val subCategoryState by remember(id) { viewModel.loadSubCategory(id) }.observeAsState(Resource.Loading())
+    var selectedCategoryName by remember { mutableStateOf("") }
 
-    val popularState by remember(id) { viewModel.loadPopular(id, limit = 5) }.observeAsState(Resource.Loading())
-    val nearestState by remember(id) { viewModel.loadNearest(id, limit = 5) }.observeAsState(Resource.Loading())
+    val subCategoryState by remember(id) { viewModel.loadSubCategory(id) }.observeAsState(Resource.Loading())
+    val popularState by remember(id) { viewModel.loadPopular(id, limit = 100) }.observeAsState(Resource.Loading())
+    val nearestState by remember(id) { viewModel.loadNearest(id, limit = 100) }.observeAsState(Resource.Loading())
 
     val subCategoryList = subCategoryState.data ?: emptyList()
     val popularList = popularState.data ?: emptyList()
@@ -45,9 +48,20 @@ fun ResultList(
     val showPopularLoading = popularState is Resource.Loading
     val showNearestLoading = nearestState is Resource.Loading
 
+    val filteredPopularList = remember(popularList, selectedCategoryName) {
+        if (selectedCategoryName.isEmpty()) popularList
+        else popularList.filter { it.Activity.equals(selectedCategoryName, ignoreCase = true) }
+    }
+
+    val filteredNearestList = remember(nearestList, selectedCategoryName) {
+        if (selectedCategoryName.isEmpty()) nearestList
+        else nearestList.filter { it.Activity.equals(selectedCategoryName, ignoreCase = true) }
+    }
+
+
     val subCategorySnapshot = remember(subCategoryList) { listToSnapshot(subCategoryList) }
-    val popularSnapshot = remember(popularList) { listToSnapshot(popularList) }
-    val nearestSnapshot = remember(nearestList) { listToSnapshot(nearestList) }
+    val popularSnapshot = remember(filteredPopularList) { listToSnapshot(filteredPopularList) }
+    val nearestSnapshot = remember(filteredNearestList) { listToSnapshot(filteredNearestList) }
 
     LazyColumn(
         modifier = Modifier
@@ -58,13 +72,22 @@ fun ResultList(
         item { Search() }
 
         item {
-            SubCategory(subCategorySnapshot, showSubCategoryLoading)
+
+            SubCategory(
+                subCategory = subCategorySnapshot,
+                showSubCategoryLoading = showSubCategoryLoading,
+                selectedCategoryName = selectedCategoryName,
+                onCategoryClick = { clickedName ->
+
+                    selectedCategoryName = if (selectedCategoryName == clickedName) "" else clickedName
+                }
+            )
         }
 
         item {
-            if (!showPopularLoading && popularList.isEmpty()) {
+            if (!showPopularLoading && filteredPopularList.isEmpty()) {
                 Box(modifier = Modifier.padding(16.dp)) {
-                    Text("No popular stores found", color = Color.Gray)
+                    Text("No stores found for $selectedCategoryName", color = Color.Gray)
                 }
             } else {
                 PopularSection(
@@ -77,8 +100,8 @@ fun ResultList(
         }
 
         item {
-            if (!showNearestLoading && nearestList.isEmpty()) {
-                // ...
+            if (!showNearestLoading && filteredNearestList.isEmpty()) {
+
             } else {
                 NearestList(
                     list = nearestSnapshot,
