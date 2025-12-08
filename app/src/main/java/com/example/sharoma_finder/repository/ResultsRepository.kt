@@ -13,13 +13,9 @@ import com.google.firebase.database.ValueEventListener
 class ResultsRepository {
     private val firebaseDatabase = FirebaseDatabase.getInstance()
 
-    
     fun loadSubCategory(id: String): LiveData<Resource<MutableList<CategoryModel>>> {
         val listData = MutableLiveData<Resource<MutableList<CategoryModel>>>()
-
-
         listData.value = Resource.Loading()
-
         val ref = firebaseDatabase.getReference("SubCategory")
         val query: Query = ref.orderByChild("CategoryId").equalTo(id)
 
@@ -32,24 +28,26 @@ class ResultsRepository {
                         lists.add(model)
                     }
                 }
-
                 listData.value = Resource.Success(lists)
             }
-
             override fun onCancelled(error: DatabaseError) {
-
                 listData.value = Resource.Error(error.message)
             }
         })
         return listData
     }
 
-    fun loadPopular(id: String): LiveData<Resource<MutableList<StoreModel>>> {
+    fun loadPopular(id: String, limit: Int? = null): LiveData<Resource<MutableList<StoreModel>>> {
         val listData = MutableLiveData<Resource<MutableList<StoreModel>>>()
-        listData.value = Resource.Loading() // Start Loading
+        listData.value = Resource.Loading()
 
         val ref = firebaseDatabase.getReference("Stores")
-        val query: Query = ref.orderByChild("CategoryId").equalTo(id)
+
+        var query: Query = ref.orderByChild("CategoryId").equalTo(id)
+
+        if (limit != null) {
+            query = query.limitToFirst(limit)
+        }
 
         query.addListenerForSingleValueEvent(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
@@ -58,9 +56,8 @@ class ResultsRepository {
                     val model = child.getValue(StoreModel::class.java)
                     model?.let { lists.add(it) }
                 }
-                listData.value = Resource.Success(lists) // Stop Loading
+                listData.value = Resource.Success(lists)
             }
-
             override fun onCancelled(error: DatabaseError) {
                 listData.value = Resource.Error(error.message)
             }
@@ -68,12 +65,16 @@ class ResultsRepository {
         return listData
     }
 
-    fun loadNearest(id: String): LiveData<Resource<MutableList<StoreModel>>> {
+    fun loadNearest(id: String, limit: Int? = null): LiveData<Resource<MutableList<StoreModel>>> {
         val listData = MutableLiveData<Resource<MutableList<StoreModel>>>()
         listData.value = Resource.Loading()
 
         val ref = firebaseDatabase.getReference("Nearest")
-        val query: Query = ref.orderByChild("CategoryId").equalTo(id)
+        var query: Query = ref.orderByChild("CategoryId").equalTo(id)
+
+        if (limit != null) {
+            query = query.limitToFirst(limit)
+        }
 
         query.addListenerForSingleValueEvent(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
@@ -84,7 +85,6 @@ class ResultsRepository {
                 }
                 listData.value = Resource.Success(lists)
             }
-
             override fun onCancelled(error: DatabaseError) {
                 listData.value = Resource.Error(error.message)
             }

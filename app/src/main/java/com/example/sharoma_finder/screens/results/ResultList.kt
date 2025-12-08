@@ -12,7 +12,6 @@ import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshots.SnapshotStateList
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.colorResource
@@ -29,12 +28,14 @@ fun ResultList(
     title: String,
     onBackClick: () -> Unit,
     onStoreClick: (StoreModel) -> Unit,
+    onSeeAllClick: (String) -> Unit
 ) {
     val viewModel: ResultsViewModel = viewModel()
 
     val subCategoryState by remember(id) { viewModel.loadSubCategory(id) }.observeAsState(Resource.Loading())
-    val popularState by remember(id) { viewModel.loadPopular(id) }.observeAsState(Resource.Loading())
-    val nearestState by remember(id) { viewModel.loadNearest(id) }.observeAsState(Resource.Loading())
+
+    val popularState by remember(id) { viewModel.loadPopular(id, limit = 5) }.observeAsState(Resource.Loading())
+    val nearestState by remember(id) { viewModel.loadNearest(id, limit = 5) }.observeAsState(Resource.Loading())
 
     val subCategoryList = subCategoryState.data ?: emptyList()
     val popularList = popularState.data ?: emptyList()
@@ -57,10 +58,6 @@ fun ResultList(
         item { Search() }
 
         item {
-
-            if (!showSubCategoryLoading && subCategoryList.isEmpty()) {
-
-            }
             SubCategory(subCategorySnapshot, showSubCategoryLoading)
         }
 
@@ -70,15 +67,25 @@ fun ResultList(
                     Text("No popular stores found", color = Color.Gray)
                 }
             } else {
-                PopularSection(popularSnapshot, showPopularLoading, onStoreClick)
+                PopularSection(
+                    list = popularSnapshot,
+                    showPopularLoading = showPopularLoading,
+                    onStoreClick = onStoreClick,
+                    onSeeAllClick = { onSeeAllClick("popular") }
+                )
             }
         }
 
         item {
             if (!showNearestLoading && nearestList.isEmpty()) {
-
+                // ...
             } else {
-                NearestList(nearestSnapshot, showNearestLoading, onStoreClick)
+                NearestList(
+                    list = nearestSnapshot,
+                    showNearestLoading = showNearestLoading,
+                    onStoreClick = onStoreClick,
+                    onSeeAllClick = { onSeeAllClick("nearest") }
+                )
             }
         }
     }

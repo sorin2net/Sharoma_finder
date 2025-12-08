@@ -14,11 +14,11 @@ class ResultsViewModel : ViewModel() {
         return repository.loadSubCategory(id)
     }
 
-    fun loadPopular(id: String): LiveData<Resource<MutableList<StoreModel>>> {
-        return repository.loadPopular(id)
+    fun loadPopular(id: String, limit: Int? = null): LiveData<Resource<MutableList<StoreModel>>> {
+        return repository.loadPopular(id, limit)
     }
 
-    fun loadNearest(id: String): LiveData<Resource<MutableList<StoreModel>>> {
-        return repository.loadNearest(id)
+    fun loadNearest(id: String, limit: Int? = null): LiveData<Resource<MutableList<StoreModel>>> {
+        return repository.loadNearest(id, limit)
     }
 }

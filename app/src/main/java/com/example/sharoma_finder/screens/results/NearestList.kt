@@ -38,7 +38,6 @@ import com.example.sharoma_finder.R
 import com.example.sharoma_finder.domain.StoreModel
 
 @Composable
-
 fun StoreDetail(item: StoreModel){
     Column(modifier=Modifier
         .fillMaxWidth()
@@ -104,41 +103,40 @@ fun ItemsNearest(
             onClick?.invoke()
         }
     ) {
-
-    StoreImage(item=item)
+        StoreImage(item=item)
         StoreDetail(item=item)
     }
 }
 
 @Composable
 fun NearestList(
-    list:SnapshotStateList<StoreModel>,
-    showNearestLoading:Boolean,
-    onStoreClick: (StoreModel)->Unit
+    list: SnapshotStateList<StoreModel>,
+    showNearestLoading: Boolean,
+    onStoreClick: (StoreModel) -> Unit,
+    onSeeAllClick: () -> Unit
 ) {
-    Column(){
-    Row(
-        Modifier
-            .padding(horizontal = 16.dp)
-            .padding(top=16.dp)
-    ){
-
-        Text(
-            text = "Nearest Stores",
-            color = colorResource(R.color.gold),
-            fontSize = 20.sp,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.weight(1f)
-        )
-        Text(
-            text = "See all",
-            color = Color.White,
-            fontSize = 16.sp,
-            style = TextStyle(textDecoration = TextDecoration.Underline)
-        )
-
-    }
-        if(showNearestLoading){
+    Column {
+        Row(
+            Modifier
+                .padding(horizontal = 16.dp)
+                .padding(top = 16.dp)
+        ) {
+            Text(
+                text = "Nearest Stores",
+                color = colorResource(R.color.gold),
+                fontSize = 20.sp,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.weight(1f)
+            )
+            Text(
+                text = "See all",
+                color = Color.White,
+                fontSize = 16.sp,
+                style = TextStyle(textDecoration = TextDecoration.Underline),
+                modifier = Modifier.clickable { onSeeAllClick() }
+            )
+        }
+        if (showNearestLoading) {
             Box(
                 Modifier
                     .fillMaxWidth()
@@ -147,23 +145,20 @@ fun NearestList(
             ) {
                 CircularProgressIndicator()
             }
-
-        }else{
-            LazyColumn (
-                modifier=Modifier
+        } else {
+            LazyColumn(
+                modifier = Modifier
                     .height(400.dp)
                     .fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
-                contentPadding = PaddingValues(start=16.dp,end=16.dp,top=8.dp)
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp)
             ) {
-                items(list.size){
-                    index->
-                        ItemsNearest(item=list[index],onClick={
-                            onStoreClick(list[index])
-                        })
+                items(list.size) { index ->
+                    ItemsNearest(item = list[index], onClick = {
+                        onStoreClick(list[index])
+                    })
                 }
             }
-
         }
     }
 }
@@ -173,24 +168,25 @@ fun NearestList(
 fun NearestListPreview(){
     val list= remember {
         androidx.compose.runtime.mutableStateListOf<StoreModel>(
-        StoreModel(
-            Title="Store 1",
-            Address="123 Main St",
-            ShortAddress = "Main St",
-            Activity = "Retail",
-            Hours = "9am - 5pm"
-        ),
-        StoreModel(
-        Title="Store 2",
-        Address="456 Oak St",
-        ShortAddress = "Oak St",
-        Activity = "Cafe",
-        Hours = "7am - 3pm"
+            StoreModel(
+                Title="Store 1",
+                Address="123 Main St",
+                ShortAddress = "Main St",
+                Activity = "Retail",
+                Hours = "9am - 5pm"
+            ),
+            StoreModel(
+                Title="Store 2",
+                Address="456 Oak St",
+                ShortAddress = "Oak St",
+                Activity = "Cafe",
+                Hours = "7am - 3pm"
+            )
         )
-    )
     }
 
-    NearestList(list=list, showNearestLoading = false, onStoreClick = {})
+
+    NearestList(list=list, showNearestLoading = false, onStoreClick = {}, onSeeAllClick = {})
 }
 
 

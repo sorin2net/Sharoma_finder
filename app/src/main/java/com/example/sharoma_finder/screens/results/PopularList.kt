@@ -113,10 +113,11 @@ fun ItemsPopularView(){
 
 @Composable
 fun PopularSection(
-    list:SnapshotStateList<StoreModel>,
-    showPopularLoading:Boolean,
-    onStoreClick:(StoreModel)->Unit
-){
+    list: SnapshotStateList<StoreModel>,
+    showPopularLoading: Boolean,
+    onStoreClick: (StoreModel) -> Unit,
+    onSeeAllClick: () -> Unit
+) {
     Column {
         Row(
             Modifier
@@ -134,7 +135,8 @@ fun PopularSection(
                 text = "See all",
                 color = Color.White,
                 fontSize = 16.sp,
-                style = TextStyle(textDecoration = TextDecoration.Underline)
+                style = TextStyle(textDecoration = TextDecoration.Underline),
+                modifier = Modifier.clickable { onSeeAllClick() }
             )
         }
         if (showPopularLoading) {
@@ -148,8 +150,7 @@ fun PopularSection(
             }
         } else {
             LazyRow(
-                modifier = Modifier
-                    .fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp)
             ) {
@@ -157,12 +158,10 @@ fun PopularSection(
                     val item = list[index]
                     ItemsPopular(item = item, onClick = { onStoreClick(item) })
                 }
-
             }
         }
     }
 }
-
 @Preview
 @Composable
 
@@ -174,6 +173,7 @@ fun PopularSectionPreview(){
     PopularSection(
         list=list,
         showPopularLoading = false,
-        onStoreClick = {}
+        onStoreClick = {} ,
+        onSeeAllClick = {}
     )
 }
