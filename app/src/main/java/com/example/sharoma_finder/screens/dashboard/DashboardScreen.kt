@@ -65,14 +65,19 @@ fun DashboardScreen(
             when (selectedTab) {
                 "Home" -> {
                     LazyColumn(modifier = Modifier.fillMaxSize()) {
-                        item { TopBar() }
+                        // --- MODIFICARE 1: TopBar primește datele din ViewModel ---
+                        item {
+                            TopBar(
+                                userName = viewModel.userName.value,
+                                userImagePath = viewModel.userImagePath.value
+                            )
+                        }
                         item { CategorySection(categories, showCategoryLoading, onCategoryClick) }
                         item { Banner(banners, showBannerLoading) }
                     }
                 }
                 "Support" -> SupportScreen()
                 "Wishlist" -> {
-                    // Folosește direct lista observabilă din ViewModel
                     WishlistScreen(
                         favoriteStores = viewModel.favoriteStores,
                         isDataLoaded = viewModel.isDataLoaded.value,
@@ -81,7 +86,10 @@ fun DashboardScreen(
                         isStoreFavorite = { store -> viewModel.isFavorite(store) }
                     )
                 }
-                "Profile" -> ProfileScreen()
+                "Profile" -> {
+                    // --- MODIFICARE 2: Afișăm ecranul real de profil ---
+                    ProfileScreen(viewModel = viewModel)
+                }
             }
         }
     }

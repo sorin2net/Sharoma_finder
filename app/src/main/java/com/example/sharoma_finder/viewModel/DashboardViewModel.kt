@@ -13,6 +13,7 @@ import com.example.sharoma_finder.repository.DashboardRepository
 import com.example.sharoma_finder.repository.FavoritesManager
 import com.example.sharoma_finder.repository.Resource
 import com.example.sharoma_finder.repository.ResultsRepository
+import com.example.sharoma_finder.repository.UserManager // Asigură-te că ai acest import
 
 class DashboardViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -20,7 +21,10 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     private val resultsRepository = ResultsRepository()
     private val favoritesManager = FavoritesManager(application.applicationContext)
 
-    // Listele pentru UI
+    // --- 1. MANAGER PENTRU PROFIL (NOU) ---
+    private val userManager = UserManager(application.applicationContext)
+
+    // Listele pentru UI (Magazine)
     val favoriteStoreIds = mutableStateListOf<String>()
     val favoriteStores = mutableStateListOf<StoreModel>()
 
@@ -30,11 +34,49 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     // Variabila care controlează Loading-ul din Wishlist
     val isDataLoaded = mutableStateOf(false)
 
+    // --- 2. VARIABILE PENTRU PROFIL (NOU) ---
+    // Folosim mutableStateOf pentru ca UI-ul (TopBar, ProfileScreen) să se actualizeze instantaneu
+    var userName = mutableStateOf("Costi")
+    var userImagePath = mutableStateOf<String?>(null)
+
     init {
         Log.d("DashboardViewModel", "=== INIT START ===")
+
+        // Încărcăm datele utilizatorului la pornire
+        loadUserData()
+
+        // Încărcăm favoritele și magazinele
         loadFavorites()
         loadAllStoresData()
     }
+
+    // --- 3. FUNCȚII PENTRU PROFIL (NOU) ---
+    private fun loadUserData() {
+        userName.value = userManager.getName()
+        userImagePath.value = userManager.getImagePath()
+        Log.d("DashboardViewModel", "User loaded: ${userName.value}, Image: ${userImagePath.value}")
+    }
+
+    fun updateUserName(newName: String) {
+        userName.value = newName
+        userManager.saveName(newName)
+    }
+
+    fun updateUserImage(uri: android.net.Uri) {
+        // 1. Copiem imaginea în memoria internă a aplicației (prin UserManager)
+        val internalPath = userManager.copyImageToInternalStorage(uri)
+
+        // 2. Actualizăm starea și salvăm calea dacă operațiunea a reușit
+        if (internalPath != null) {
+            userImagePath.value = internalPath
+            userManager.saveImagePath(internalPath)
+            Log.d("DashboardViewModel", "Image updated successfully: $internalPath")
+        } else {
+            Log.e("DashboardViewModel", "Failed to save image")
+        }
+    }
+
+    // --- LOGICA EXISTENTĂ PENTRU MAGAZINE ȘI FAVORITE ---
 
     private fun loadFavorites() {
         favoriteStoreIds.clear()
@@ -51,7 +93,6 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         // Funcție internă care verifică dacă s-a terminat tot
         fun checkAllFinished() {
             finishedQueries++
-            // Log.d("DashboardViewModel", "Progress: $finishedQueries / $totalQueries requests finished")
 
             if (finishedQueries >= totalQueries) {
                 isDataLoaded.value = true
@@ -90,7 +131,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             }
         }
 
-        // --- AICI ESTE FIX-UL: Adăugăm și categoria "0" ---
+        // --- Încărcăm toate categoriile necesare ---
         observeAndAdd("0", "popular")
         observeAndAdd("0", "nearest")
 
