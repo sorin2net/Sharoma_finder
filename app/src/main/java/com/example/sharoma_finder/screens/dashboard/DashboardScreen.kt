@@ -73,11 +73,12 @@ fun DashboardScreen(
             when (selectedTab) {
                 "Home" -> {
                     LazyColumn(modifier = Modifier.fillMaxSize()) {
-                        // 1. TopBar cu datele din Profil
+                        // 1. TopBar cu datele din Profil SI Wishlist
                         item {
                             TopBar(
                                 userName = viewModel.userName.value,
-                                userImagePath = viewModel.userImagePath.value
+                                userImagePath = viewModel.userImagePath.value,
+                                wishlistCount = viewModel.favoriteStores.size // ✅ ADĂUGAT AICI
                             )
                         }
 

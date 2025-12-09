@@ -9,6 +9,7 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.viewModels // ✅ IMPORTANT: Necesar pentru instanțiere în Activity
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateListOf
@@ -17,7 +18,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.colorResource
 import androidx.core.app.ActivityCompat
 import androidx.core.view.WindowInsetsControllerCompat
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.sharoma_finder.domain.StoreModel
 import com.example.sharoma_finder.screens.dashboard.DashboardScreen
 import com.example.sharoma_finder.screens.map.MapScreen
@@ -27,38 +27,49 @@ import com.example.sharoma_finder.viewModel.DashboardViewModel
 import com.google.accompanist.systemuicontroller.rememberSystemUiController
 
 class MainActivity : ComponentActivity() {
+
+    // ✅ 1. Instanțiem ViewModel-ul aici pentru a avea acces la el în callback-uri
+    private val dashboardViewModel: DashboardViewModel by viewModels()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        // Cerem permisiunile la start
-        // Notă: Dacă permisiunea e acordată AICI, la prima rulare, ViewModel-ul
-        // s-ar putea să aibă nevoie de un refresh manual sau de un restart de app
-        // pentru a prinde locația în această sesiune (depinde de timing).
-        // Pentru simplitate, păstrăm fluxul actual.
+        // ✅ 2. Definim ce se întâmplă când utilizatorul răspunde la popup
         val locationPermissionRequest = registerForActivityResult(
             ActivityResultContracts.RequestMultiplePermissions()
         ) { permissions ->
-            when {
-                permissions.getOrDefault(Manifest.permission.ACCESS_FINE_LOCATION, false) -> {
-                    Log.d("MainActivity", "Fine location permission granted")
-                }
-                permissions.getOrDefault(Manifest.permission.ACCESS_COARSE_LOCATION, false) -> {
-                    Log.d("MainActivity", "Coarse location permission granted")
-                }
-                else -> {
-                    Log.w("MainActivity", "Location permission denied")
-                }
+            val fineLocation = permissions.getOrDefault(Manifest.permission.ACCESS_FINE_LOCATION, false)
+            val coarseLocation = permissions.getOrDefault(Manifest.permission.ACCESS_COARSE_LOCATION, false)
+
+            if (fineLocation || coarseLocation) {
+                Log.d("MainActivity", "Permission granted by user. Fetching location NOW.")
+                // ✅ FIX: Apelăm fetch imediat ce primim permisiunea
+                dashboardViewModel.fetchUserLocation()
+            } else {
+                Log.w("MainActivity", "Location permission denied by user")
             }
         }
 
-        locationPermissionRequest.launch(arrayOf(
-            Manifest.permission.ACCESS_FINE_LOCATION,
-            Manifest.permission.ACCESS_COARSE_LOCATION
-        ))
+        // ✅ 3. Verificăm starea inițială la pornirea aplicației
+        val hasFineLocation = ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        val hasCoarseLocation = ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+
+        if (hasFineLocation || hasCoarseLocation) {
+            // Dacă avem deja permisiunea (de la o rulare anterioară), luăm locația
+            Log.d("MainActivity", "Permissions already granted. Fetching location.")
+            dashboardViewModel.fetchUserLocation()
+        } else {
+            // Dacă nu avem permisiunea, lansăm cererea
+            locationPermissionRequest.launch(arrayOf(
+                Manifest.permission.ACCESS_FINE_LOCATION,
+                Manifest.permission.ACCESS_COARSE_LOCATION
+            ))
+        }
 
         setContent {
-            MainApp()
+            // ✅ 4. Trimitem ViewModel-ul deja creat către UI
+            MainApp(dashboardViewModel)
         }
     }
 }
@@ -71,10 +82,12 @@ sealed class Screen {
 }
 
 @Composable
-fun MainApp() {
+fun MainApp(
+    // ✅ 5. Primim ViewModel-ul ca parametru
+    dashboardViewModel: DashboardViewModel
+) {
     val systemUiController = rememberSystemUiController()
     val context = LocalContext.current
-    val dashboardViewModel: DashboardViewModel = viewModel()
 
     // Immersive Mode
     LaunchedEffect(Unit) {
@@ -83,25 +96,8 @@ fun MainApp() {
             WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
     }
 
-    // --- REFACTORIZED GPS LOGIC ---
-    // Acum doar verificăm permisiunea și delegăm munca grea ViewModel-ului.
-    LaunchedEffect(Unit) {
-        val hasPermission = ActivityCompat.checkSelfPermission(
-            context,
-            Manifest.permission.ACCESS_FINE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED || ActivityCompat.checkSelfPermission(
-            context,
-            Manifest.permission.ACCESS_COARSE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED
-
-        if (hasPermission) {
-            // Apelăm funcția din ViewModel care folosește ApplicationContext
-            dashboardViewModel.fetchUserLocation()
-        } else {
-            Log.w("MainActivity", "GPS permissions not granted - skipping fetch")
-        }
-    }
-    // -------------------------
+    // NOTĂ: Am eliminat LaunchedEffect-ul de aici pentru permisiuni,
+    // deoarece acum MainActivity se ocupă complet de acest flow.
 
     systemUiController.setStatusBarColor(color = colorResource(R.color.white))
 

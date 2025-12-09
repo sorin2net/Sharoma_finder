@@ -4,6 +4,7 @@ import android.Manifest
 import android.app.Application
 import android.content.pm.PackageManager
 import android.location.Location
+import android.net.Uri
 import android.util.Log
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -11,6 +12,7 @@ import androidx.core.app.ActivityCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.Observer
+import androidx.lifecycle.viewModelScope
 import com.example.sharoma_finder.domain.BannerModel
 import com.example.sharoma_finder.domain.CategoryModel
 import com.example.sharoma_finder.domain.StoreModel
@@ -21,6 +23,9 @@ import com.example.sharoma_finder.repository.ResultsRepository
 import com.example.sharoma_finder.repository.UserManager
 import com.google.android.gms.location.LocationServices
 import com.google.firebase.analytics.FirebaseAnalytics
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class DashboardViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -206,11 +211,16 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         userManager.saveName(newName)
     }
 
-    fun updateUserImage(uri: android.net.Uri) {
-        val internalPath = userManager.copyImageToInternalStorage(uri)
-        if (internalPath != null) {
-            userImagePath.value = internalPath
-            userManager.saveImagePath(internalPath)
+    // În DashboardViewModel
+    fun updateUserImage(uri: Uri) {
+        viewModelScope.launch(Dispatchers.IO) { // Execută pe fundal
+            val internalPath = userManager.copyImageToInternalStorage(uri)
+            withContext(Dispatchers.Main) { // Revino pe UI pentru update
+                if (internalPath != null) {
+                    userImagePath.value = internalPath
+                    userManager.saveImagePath(internalPath)
+                }
+            }
         }
     }
 

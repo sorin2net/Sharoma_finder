@@ -14,6 +14,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -27,15 +28,39 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.constraintlayout.compose.ConstraintLayout
+import androidx.constraintlayout.compose.Dimension
 import coil.compose.AsyncImage
 import com.example.sharoma_finder.R
 import java.io.File
+import java.util.Calendar // ✅ Import necesar pentru oră
 
 @Composable
 fun TopBar(
     userName: String,
-    userImagePath: String?
+    userImagePath: String?,
+    wishlistCount: Int
 ) {
+    // 1. LOGICA PENTRU TITLUL DE REWARD (bazat pe wishlist)
+    val userRankTitle = when (wishlistCount) {
+        0 -> "Newcomer"
+        in 1..2 -> "Appetizer"
+        in 3..5 -> "Gourmand"
+        else -> "Connoisseur"
+    }
+
+    // 2. LOGICA PENTRU SALUT (bazat pe oră)
+    // Folosim 'remember' pentru a nu recalcul ora la fiecare mică redesenare, deși nu e critic aici.
+    val greetingText = remember {
+        val calendar = Calendar.getInstance()
+        val hour = calendar.get(Calendar.HOUR_OF_DAY) // Ora în format 0-23
+
+        when (hour) {
+            in 6..10 -> "Neata"      // 06:00 - 10:59
+            in 11..17 -> "Buna ziua" // 11:00 - 17:59 (5 PM)
+            else -> "Buna seara"     // 18:00 - 05:59
+        }
+    }
+
     ConstraintLayout(
         modifier = Modifier
             .fillMaxWidth()
@@ -43,13 +68,11 @@ fun TopBar(
     ) {
         val (title1, title2, profile, box) = createRefs()
 
-        // --- 1. LOGICA PENTRU POZA DE PROFIL ---
+        // --- POZA DE PROFIL ---
         if (userImagePath != null) {
-            // Dacă utilizatorul a ales o poză
             AsyncImage(
                 model = File(userImagePath),
-                // --- ACCESIBILITATE: Descriere dinamică ---
-                contentDescription = "Profile picture of $userName",
+                contentDescription = "Profile picture",
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .padding(horizontal = 16.dp, vertical = 16.dp)
@@ -61,10 +84,8 @@ fun TopBar(
                     }
             )
         } else {
-            // Dacă nu, afișăm poza default
             Image(
                 painter = painterResource(R.drawable.profile),
-                // --- ACCESIBILITATE: Descriere clară ---
                 contentDescription = "Default profile picture",
                 modifier = Modifier
                     .padding(horizontal = 16.dp, vertical = 16.dp)
@@ -77,9 +98,9 @@ fun TopBar(
             )
         }
 
-        // --- 2. NUMELE UTILIZATORULUI ---
+        // --- SALUTUL DINAMIC ---
         Text(
-            text = "Neata, $userName",
+            text = "$greetingText, $userName", // ✅ Aici am pus variabila calculată
             fontSize = 20.sp,
             color = colorResource(R.color.gold),
             modifier = Modifier
@@ -88,11 +109,11 @@ fun TopBar(
                     start.linkTo(parent.start, margin = 16.dp)
                     bottom.linkTo(profile.bottom)
                     end.linkTo(profile.start, margin = 8.dp)
-                    width = androidx.constraintlayout.compose.Dimension.fillToConstraints
+                    width = Dimension.fillToConstraints
                 }
         )
 
-        // --- 3. TEXTUL SECUNDAR ---
+        // --- TEXTUL SECUNDAR ---
         Text(
             text = "Ce mananci azi bun?",
             fontSize = 25.sp,
@@ -104,11 +125,11 @@ fun TopBar(
                     top.linkTo(profile.bottom)
                     start.linkTo(parent.start, margin = 16.dp)
                     end.linkTo(parent.end)
-                    width = androidx.constraintlayout.compose.Dimension.fillToConstraints
+                    width = Dimension.fillToConstraints
                 }
         )
 
-        // --- 4. SECȚIUNEA PORTOFEL ---
+        // --- SECȚIUNEA STATISTICI ---
         ConstraintLayout(
             modifier = Modifier
                 .padding(horizontal = 24.dp)
@@ -125,11 +146,10 @@ fun TopBar(
                 }
                 .clip(RoundedCornerShape(10.dp))
         ) {
-            val (icon1, icon2, balance, amount, reward, wallet, line1, line2) = createRefs()
+            val (icon1, icon2, wishTitle, wishCount, reward, wallet, line1, line2) = createRefs()
 
             Image(
                 painter = painterResource(R.drawable.wallet),
-                // --- ACCESIBILITATE: null pentru că textul de lângă explică deja ---
                 contentDescription = null,
                 modifier = Modifier
                     .padding(start = 16.dp, top = 16.dp)
@@ -140,7 +160,6 @@ fun TopBar(
             )
             Image(
                 painter = painterResource(R.drawable.medal),
-                // --- ACCESIBILITATE: null (decorativ) ---
                 contentDescription = null,
                 modifier = Modifier
                     .padding(start = 16.dp, bottom = 16.dp)
@@ -149,6 +168,7 @@ fun TopBar(
                         start.linkTo(parent.start)
                     }
             )
+
             Text(
                 text = "Portofel",
                 fontSize = 14.sp,
@@ -162,11 +182,13 @@ fun TopBar(
                         start.linkTo(icon1.end)
                     }
             )
+
+            // --- REWARD DINAMIC ---
             Text(
-                text = "Reward",
+                text = userRankTitle, // ✅ "Appetizer", "Gourmand", etc.
                 fontSize = 14.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = Color.White,
+                color = colorResource(R.color.gold),
                 style = TextStyle(textDecoration = TextDecoration.Underline),
                 modifier = Modifier
                     .padding(start = 8.dp)
@@ -175,6 +197,7 @@ fun TopBar(
                         start.linkTo(icon2.end)
                     }
             )
+
             Box(modifier = Modifier
                 .width(1.dp)
                 .fillMaxHeight()
@@ -195,37 +218,35 @@ fun TopBar(
                     start.linkTo(parent.start)
                 }
             )
+
+            // --- WISHLIST TITLE ---
             Text(
-                text = "Balance",
+                text = "My Wishlist",
                 fontSize = 14.sp,
                 fontWeight = FontWeight.SemiBold,
                 style = TextStyle(textDecoration = TextDecoration.Underline),
                 color = Color.White,
                 modifier = Modifier
                     .padding(start = 16.dp, top = 32.dp)
-                    .constrainAs(balance) {
+                    .constrainAs(wishTitle) {
                         top.linkTo(parent.top)
                         start.linkTo(line1.end)
                     }
             )
+
+            // --- WISHLIST COUNT ---
             Text(
-                text = "150.00 RON",
+                text = "$wishlistCount ${if (wishlistCount == 1) "Item" else "Items"}",
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.White,
                 modifier = Modifier
                     .padding(start = 16.dp, top = 8.dp)
-                    .constrainAs(amount) {
-                        top.linkTo(balance.bottom)
-                        start.linkTo(balance.start)
+                    .constrainAs(wishCount) {
+                        top.linkTo(wishTitle.bottom)
+                        start.linkTo(wishTitle.start)
                     }
             )
         }
     }
-}
-
-@Preview
-@Composable
-fun TopBarPreview() {
-    TopBar(userName = "Costi", userImagePath = null)
 }
