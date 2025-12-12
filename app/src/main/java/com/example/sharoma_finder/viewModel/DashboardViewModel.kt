@@ -35,8 +35,6 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
 
     private val database = AppDatabase.getDatabase(application)
     private val storeRepository = StoreRepository(database.storeDao())
-
-    // ✅ Repository actualizat cu DAO-uri
     private val dashboardRepository = DashboardRepository(
         database.categoryDao(),
         database.bannerDao()
@@ -72,11 +70,14 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val cachedStores = database.storeDao().getAllStoresSync()
+                val cachedCategories = database.categoryDao().getAllCategoriesSync()
+                val cachedBanners = database.bannerDao().getAllBannersSync()
+
+                Log.d("DashboardVM", "📦 Cache check: Stores=${cachedStores.size}, Categories=${cachedCategories.size}, Banners=${cachedBanners.size}")
 
                 withContext(Dispatchers.Main) {
                     if (cachedStores.isNotEmpty()) {
-                        Log.d("DashboardVM", "✅ Found ${cachedStores.size} stores in cache")
-
+                        Log.d("DashboardVM", "✅ Loading ${cachedStores.size} stores from cache")
                         allStoresRaw.clear()
                         allStoresRaw.addAll(cachedStores)
 
@@ -85,14 +86,14 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                         } else {
                             processData()
                         }
-                    } else {
-                        Log.d("DashboardVM", "⚠️ Cache is empty - showing empty state")
                     }
 
+                    // ✅ FIX CRITIC: Setăm isDataLoaded = true IMEDIAT
+                    // Categoriile și banner-ele se încarcă prin LiveData observeAsState
                     isDataLoaded.value = true
                 }
             } catch (e: Exception) {
-                Log.e("DashboardVM", "❌ Error checking cache: ${e.message}")
+                Log.e("DashboardVM", "❌ Cache check failed: ${e.message}")
                 withContext(Dispatchers.Main) {
                     isDataLoaded.value = true
                 }
@@ -103,7 +104,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     private fun observeLocalDatabase() {
         localStoreObserver = Observer { stores ->
             if (stores != null) {
-                Log.d("DashboardVM", "🔄 Room updated: ${stores.size} stores")
+                Log.d("DashboardVM", "🔄 Room LiveData update: ${stores.size} stores")
 
                 allStoresRaw.clear()
                 allStoresRaw.addAll(stores)
@@ -125,23 +126,24 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
 
     private fun refreshDataFromNetwork() {
         viewModelScope.launch {
-            Log.d("DashboardVM", "🌐 Attempting network sync...")
+            Log.d("DashboardVM", "🌐 Starting network sync...")
 
             try {
-                // ✅ Sincronizăm TOATE datele
                 withContext(Dispatchers.IO) {
-                    storeRepository.refreshStores()
-                    dashboardRepository.refreshCategories()  // ✅ NOU
-                    dashboardRepository.refreshBanners()     // ✅ NOU
+                    // Rulează toate sincronizările în paralel pentru viteză maximă
+                    launch { storeRepository.refreshStores() }
+                    launch { dashboardRepository.refreshCategories() }
+                    launch { dashboardRepository.refreshBanners() }
                 }
-                Log.d("DashboardVM", "✅ Network sync completed successfully")
+                Log.d("DashboardVM", "✅ Network sync completed")
             } catch (e: Exception) {
                 Log.e("DashboardVM", "❌ Network sync failed: ${e.message}")
             }
 
-            kotlinx.coroutines.delay(8000)
+            // Safety timeout
+            kotlinx.coroutines.delay(5000)
             if (!isDataLoaded.value) {
-                Log.w("DashboardVM", "⏰ Timeout reached - forcing data loaded state")
+                Log.w("DashboardVM", "⏰ Timeout - forcing loaded state")
                 isDataLoaded.value = true
             }
         }
@@ -167,19 +169,19 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                     .addOnSuccessListener { location ->
                         if (location != null) {
                             updateUserLocation(location)
-                            Log.d("DashboardVM", "📍 GPS location: ${location.latitude}, ${location.longitude}")
+                            Log.d("DashboardVM", "📍 GPS: ${location.latitude}, ${location.longitude}")
                         } else {
-                            Log.w("DashboardVM", "⚠️ GPS enabled but location is null")
+                            Log.w("DashboardVM", "⚠️ GPS null")
                         }
                     }
-                    .addOnFailureListener { exception ->
-                        Log.e("DashboardVM", "❌ Failed to get GPS location", exception)
+                    .addOnFailureListener { e ->
+                        Log.e("DashboardVM", "❌ GPS failed: ${e.message}")
                     }
             } catch (e: SecurityException) {
                 Log.e("DashboardVM", "🔒 GPS Security Error", e)
             }
         } else {
-            Log.w("DashboardVM", "⚠️ Location permissions missing")
+            Log.w("DashboardVM", "⚠️ No location permissions")
         }
     }
 
@@ -192,7 +194,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         val location = currentUserLocation ?: return
         if (allStoresRaw.isEmpty()) return
 
-        Log.d("DashboardVM", "📏 Recalculating distances for ${allStoresRaw.size} stores")
+        Log.d("DashboardVM", "📏 Calculating distances for ${allStoresRaw.size} stores")
 
         allStoresRaw.forEach { store ->
             val storeLoc = Location("store")
@@ -221,7 +223,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
 
         updateFavoriteStores()
 
-        Log.d("DashboardVM", "✅ Processed ${allStoresRaw.size} stores (${popular.size} popular)")
+        Log.d("DashboardVM", "✅ Processed: ${allStoresRaw.size} stores, ${popular.size} popular")
     }
 
     override fun onCleared() {
@@ -229,10 +231,9 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         if (::localStoreObserver.isInitialized) {
             storeRepository.allStores.removeObserver(localStoreObserver)
         }
-        Log.d("DashboardViewModel", "=== CLEANUP COMPLETE ===")
+        Log.d("DashboardViewModel", "=== CLEANUP ===")
     }
 
-    // Analytics
     fun logViewStore(store: StoreModel) {
         val bundle = android.os.Bundle()
         bundle.putString(FirebaseAnalytics.Param.ITEM_ID, store.getUniqueId())
@@ -244,7 +245,6 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun getGlobalStoreList(): List<StoreModel> = allStoresRaw
 
-    // User Profile
     private fun loadUserData() {
         userName.value = userManager.getName()
         userImagePath.value = userManager.getImagePath()
@@ -267,7 +267,6 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    // Favorites
     private fun loadFavorites() {
         favoriteStoreIds.clear()
         favoriteStoreIds.addAll(favoritesManager.getFavorites())
@@ -300,16 +299,6 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         updateFavoriteStores()
     }
 
-    // ✅ Categoriile și banner-urile vin acum din Room (OFFLINE)
     fun loadCategory(): LiveData<List<CategoryModel>> = dashboardRepository.allCategories
     fun loadBanner(): LiveData<List<BannerModel>> = dashboardRepository.allBanners
 }
-
-// ✅ NOTĂ DESPRE DashboardScreen.kt:
-// Schimbă observeAsState de la:
-// val categoryList by viewModel.loadCategory().observeAsState(initial = emptyList())
-// val bannerList by viewModel.loadBanner().observeAsState(initial = emptyList())
-//
-// La:
-// val categoryList by viewModel.loadCategory().observeAsState(emptyList())
-// val bannerList by viewModel.loadBanner().observeAsState(emptyList())

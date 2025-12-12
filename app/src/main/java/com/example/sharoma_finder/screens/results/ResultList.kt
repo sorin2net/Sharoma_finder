@@ -1,6 +1,7 @@
 package com.example.sharoma_finder.screens.results
 
 import android.location.Location
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -37,7 +38,6 @@ fun ResultList(
     allGlobalStores: List<StoreModel> = emptyList(),
     userLocation: Location? = null
 ) {
-    // ✅ FIX: Creăm repository-ul cu StoreDao
     val context = LocalContext.current
     val database = AppDatabase.getDatabase(context)
     val repository = ResultsRepository(database.storeDao())
@@ -47,7 +47,17 @@ fun ResultList(
     var hasError by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf("") }
 
-    // ✅ Subcategoriile (Burger, Pizza, Sushi, etc.)
+    // ✅ DEBUGGING: Logăm ce primim
+    LaunchedEffect(allGlobalStores.size, id) {
+        Log.d("ResultList", """
+            📦 ResultList launched:
+            - CategoryId: $id
+            - Title: $title
+            - Total stores available: ${allGlobalStores.size}
+            - Stores in this category: ${allGlobalStores.count { it.CategoryId == id }}
+        """.trimIndent())
+    }
+
     val subCategoryState by remember(id) {
         repository.loadSubCategory(id)
     }.observeAsState(Resource.Loading())
@@ -67,7 +77,7 @@ fun ResultList(
     val showSubCategoryLoading = subCategoryState is Resource.Loading
     val subCategorySnapshot = remember(subCategoryList) { listToSnapshot(subCategoryList) }
 
-    // ✅ Filtrăm magazinele după CategoryId și Tag-uri (OFFLINE)
+    // ✅ Filtrăm Popular (OFFLINE)
     val categoryPopularList = remember(allGlobalStores, id, selectedTag) {
         try {
             allGlobalStores.filter { store ->
@@ -116,7 +126,16 @@ fun ResultList(
     val popularSnapshot = remember(categoryPopularList) { listToSnapshot(categoryPopularList) }
     val nearestSnapshot = remember(categoryNearestList) { listToSnapshot(categoryNearestList) }
 
-    // ✅ Search funcționează OFFLINE (caută în allGlobalStores)
+    // ✅ DEBUGGING: Logăm listele filtrate
+    LaunchedEffect(popularSnapshot.size, nearestSnapshot.size) {
+        Log.d("ResultList", """
+            📊 Filtered results:
+            - Popular: ${popularSnapshot.size}
+            - Nearest: ${nearestSnapshot.size}
+        """.trimIndent())
+    }
+
+    // ✅ Search (OFFLINE)
     val searchResults = remember(searchText, allGlobalStores) {
         if (searchText.isEmpty()) {
             emptyList()
@@ -241,7 +260,11 @@ fun ResultList(
                         list = popularSnapshot,
                         showPopularLoading = false,
                         onStoreClick = onStoreClick,
-                        onSeeAllClick = { onSeeAllClick("popular") },
+                        // ✅ FIX CRITIC: Trimitem exact "popular" (lowercase, fără spații)
+                        onSeeAllClick = {
+                            Log.d("ResultList", "📤 See All clicked for POPULAR")
+                            onSeeAllClick("popular")
+                        },
                         isStoreFavorite = isStoreFavorite,
                         onFavoriteToggle = onFavoriteToggle
                     )
@@ -268,7 +291,11 @@ fun ResultList(
                         list = nearestSnapshot,
                         showNearestLoading = false,
                         onStoreClick = onStoreClick,
-                        onSeeAllClick = { onSeeAllClick("nearest") },
+                        // ✅ FIX CRITIC: Trimitem exact "nearest" (lowercase, fără spații)
+                        onSeeAllClick = {
+                            Log.d("ResultList", "📤 See All clicked for NEAREST")
+                            onSeeAllClick("nearest")
+                        },
                         isStoreFavorite = isStoreFavorite,
                         onFavoriteToggle = onFavoriteToggle
                     )

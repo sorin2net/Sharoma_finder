@@ -9,7 +9,7 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.activity.viewModels // ✅ IMPORTANT: Necesar pentru instanțiere în Activity
+import androidx.activity.viewModels
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateListOf
@@ -28,14 +28,12 @@ import com.google.accompanist.systemuicontroller.rememberSystemUiController
 
 class MainActivity : ComponentActivity() {
 
-    // ✅ 1. Instanțiem ViewModel-ul aici pentru a avea acces la el în callback-uri
     private val dashboardViewModel: DashboardViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        // ✅ 2. Definim ce se întâmplă când utilizatorul răspunde la popup
         val locationPermissionRequest = registerForActivityResult(
             ActivityResultContracts.RequestMultiplePermissions()
         ) { permissions ->
@@ -43,24 +41,20 @@ class MainActivity : ComponentActivity() {
             val coarseLocation = permissions.getOrDefault(Manifest.permission.ACCESS_COARSE_LOCATION, false)
 
             if (fineLocation || coarseLocation) {
-                Log.d("MainActivity", "Permission granted by user. Fetching location NOW.")
-                // ✅ FIX: Apelăm fetch imediat ce primim permisiunea
+                Log.d("MainActivity", "✅ Location permission granted")
                 dashboardViewModel.fetchUserLocation()
             } else {
-                Log.w("MainActivity", "Location permission denied by user")
+                Log.w("MainActivity", "⚠️ Location permission denied")
             }
         }
 
-        // ✅ 3. Verificăm starea inițială la pornirea aplicației
         val hasFineLocation = ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
         val hasCoarseLocation = ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
 
         if (hasFineLocation || hasCoarseLocation) {
-            // Dacă avem deja permisiunea (de la o rulare anterioară), luăm locația
-            Log.d("MainActivity", "Permissions already granted. Fetching location.")
+            Log.d("MainActivity", "✅ Permissions already granted")
             dashboardViewModel.fetchUserLocation()
         } else {
-            // Dacă nu avem permisiunea, lansăm cererea
             locationPermissionRequest.launch(arrayOf(
                 Manifest.permission.ACCESS_FINE_LOCATION,
                 Manifest.permission.ACCESS_COARSE_LOCATION
@@ -68,7 +62,6 @@ class MainActivity : ComponentActivity() {
         }
 
         setContent {
-            // ✅ 4. Trimitem ViewModel-ul deja creat către UI
             MainApp(dashboardViewModel)
         }
     }
@@ -82,22 +75,14 @@ sealed class Screen {
 }
 
 @Composable
-fun MainApp(
-    // ✅ 5. Primim ViewModel-ul ca parametru
-    dashboardViewModel: DashboardViewModel
-) {
+fun MainApp(dashboardViewModel: DashboardViewModel) {
     val systemUiController = rememberSystemUiController()
-    val context = LocalContext.current
 
-    // Immersive Mode
     LaunchedEffect(Unit) {
         systemUiController.isNavigationBarVisible = false
         systemUiController.systemBarsBehavior =
             WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
     }
-
-    // NOTĂ: Am eliminat LaunchedEffect-ul de aici pentru permisiuni,
-    // deoarece acum MainActivity se ocupă complet de acest flow.
 
     systemUiController.setStatusBarColor(color = colorResource(R.color.white))
 
@@ -142,11 +127,24 @@ fun MainApp(
             )
         }
         is Screen.ViewAll -> {
-            val listToSend = if (screen.mode == "nearest" || screen.mode == "nearest_all") {
-                dashboardViewModel.nearestStoresAllSorted
-            } else {
-                null
+            // ✅ FIX CRITIC: Verificăm mode-ul și trimitem lista corectă
+            val listToSend = when (screen.mode) {
+                "popular" -> {
+                    // Filtrăm magazinele populare din categoria curentă
+                    dashboardViewModel.getGlobalStoreList()
+                        .filter { it.CategoryId == screen.id && it.IsPopular }
+                        .sortedBy { if (it.distanceToUser < 0) Float.MAX_VALUE else it.distanceToUser }
+                }
+                "nearest", "nearest_all" -> {
+                    // Toate magazinele din categorie, sortate după distanță
+                    dashboardViewModel.getGlobalStoreList()
+                        .filter { it.CategoryId == screen.id }
+                        .sortedBy { if (it.distanceToUser < 0) Float.MAX_VALUE else it.distanceToUser }
+                }
+                else -> emptyList()
             }
+
+            Log.d("MainActivity", "📦 Sending ${listToSend.size} stores for mode: ${screen.mode}")
 
             AllStoresScreen(
                 categoryId = screen.id,
