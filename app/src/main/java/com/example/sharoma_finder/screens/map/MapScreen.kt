@@ -1,6 +1,8 @@
 package com.example.sharoma_finder.screens.map
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -14,7 +16,11 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -25,9 +31,17 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.constraintlayout.compose.ConstraintLayout
+import androidx.core.app.ActivityCompat
 import com.example.sharoma_finder.R
 import com.example.sharoma_finder.domain.StoreModel
 import com.example.sharoma_finder.screens.results.ItemsNearest
+import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.LocationCallback
+import com.google.android.gms.location.LocationRequest
+import com.google.android.gms.location.LocationResult
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
+import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.GoogleMap
@@ -41,7 +55,7 @@ fun MapScreen(
     isFavorite: Boolean = false,
     onFavoriteClick: () -> Unit = {}
 ) {
-    // ✅ ADĂUGAT: Validare coordonate
+    // ✅ Validare coordonate magazin
     if (store.Latitude == 0.0 || store.Longitude == 0.0) {
         Box(
             modifier = Modifier
@@ -60,14 +74,76 @@ fun MapScreen(
         return
     }
 
-    val latlng = LatLng(store.Latitude, store.Longitude)
-    val cameraPositionState = rememberCameraPositionState {
-        position = CameraPosition.fromLatLngZoom(latlng, 15f)
-    }
-    val markerState = remember {
-        MarkerState(position = latlng)
-    }
     val context = LocalContext.current
+
+    // Poziția magazinului
+    val storeLatlng = LatLng(store.Latitude, store.Longitude)
+
+    // State pentru locația utilizatorului (LIVE)
+    var userLocation by remember { mutableStateOf<LatLng?>(null) }
+
+    // Camera inițial centrată pe magazin
+    val cameraPositionState = rememberCameraPositionState {
+        position = CameraPosition.fromLatLngZoom(storeLatlng, 15f)
+    }
+
+    // Marker state pentru magazin (fix)
+    val storeMarkerState = remember { MarkerState(position = storeLatlng) }
+
+    // Marker state pentru utilizator (se updatează live)
+    val userMarkerState = remember {
+        userLocation?.let { MarkerState(position = it) }
+    }
+
+    // ✅ TRACKING LIVE AL LOCAȚIEI UTILIZATORULUI
+    DisposableEffect(Unit) {
+        val fusedLocationClient: FusedLocationProviderClient =
+            LocationServices.getFusedLocationProviderClient(context)
+
+        // Cerere de locație cu update-uri frecvente
+        val locationRequest = LocationRequest.Builder(
+            Priority.PRIORITY_HIGH_ACCURACY, // Precizie maximă
+            5000L // Update la fiecare 5 secunde
+        ).apply {
+            setMinUpdateIntervalMillis(2000L) // Minim 2 secunde între update-uri
+            setMaxUpdateDelayMillis(10000L) // Maxim 10 secunde delay
+        }.build()
+
+        val locationCallback = object : LocationCallback() {
+            override fun onLocationResult(locationResult: LocationResult) {
+                locationResult.lastLocation?.let { location ->
+                    // ✅ Actualizăm poziția utilizatorului LIVE
+                    userLocation = LatLng(location.latitude, location.longitude)
+
+                    // ✅ Actualizăm și marker-ul utilizatorului
+                    userMarkerState?.position = userLocation!!
+                }
+            }
+        }
+
+        // Verificăm permisiunile
+        if (ActivityCompat.checkSelfPermission(
+                context,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED ||
+            ActivityCompat.checkSelfPermission(
+                context,
+                Manifest.permission.ACCESS_COARSE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED
+        ) {
+            // Pornim tracking-ul live
+            fusedLocationClient.requestLocationUpdates(
+                locationRequest,
+                locationCallback,
+                null // Main Looper
+            )
+        }
+
+        // ✅ CLEANUP când părăsim ecranul (CRITIC pentru a preveni memory leak)
+        onDispose {
+            fusedLocationClient.removeLocationUpdates(locationCallback)
+        }
+    }
 
     ConstraintLayout(
         modifier = Modifier.fillMaxSize()
@@ -82,9 +158,26 @@ fun MapScreen(
                 },
             cameraPositionState = cameraPositionState
         ) {
-            Marker(state = markerState, title = store.Title)
+            // ✅ MARKER 1: MAGAZINUL (PIN ROȘU)
+            Marker(
+                state = storeMarkerState,
+                title = store.Title,
+                snippet = store.Address,
+                icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)
+            )
+
+            // ✅ MARKER 2: UTILIZATORUL (PIN ALBASTRU - se mișcă live)
+            userLocation?.let { location ->
+                Marker(
+                    state = MarkerState(position = location),
+                    title = "Your Location",
+                    snippet = "You are here",
+                    icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_BLUE)
+                )
+            }
         }
 
+        // Card cu detalii magazin (la fel ca înainte)
         LazyColumn(
             modifier = Modifier
                 .wrapContentHeight()
