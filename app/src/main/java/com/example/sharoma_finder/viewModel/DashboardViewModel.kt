@@ -51,7 +51,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
 
     // State
     val isDataLoaded = mutableStateOf(false)
-    var userName = mutableStateOf("Costi")
+    var userName = mutableStateOf("Utilizatorule")
     var userImagePath = mutableStateOf<String?>(null)
     var currentUserLocation: Location? = null
         private set

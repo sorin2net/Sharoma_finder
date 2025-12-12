@@ -23,20 +23,6 @@ import com.example.sharoma_finder.domain.StoreModel
 import com.example.sharoma_finder.screens.results.ItemsNearest
 
 @Composable
-fun SupportScreen() {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text("Support Screen", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = colorResource(R.color.gold))
-    }
-}
-
-@Composable
-fun ProfileScreen() {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text("Profile Screen", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = colorResource(R.color.gold))
-    }
-}
-
-@Composable
 fun WishlistScreen(
     favoriteStores: SnapshotStateList<StoreModel>,
     isDataLoaded: Boolean,
