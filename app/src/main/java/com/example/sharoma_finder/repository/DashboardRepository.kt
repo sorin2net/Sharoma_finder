@@ -4,12 +4,11 @@ import android.util.Log
 import androidx.lifecycle.LiveData
 import com.example.sharoma_finder.data.BannerDao
 import com.example.sharoma_finder.data.CategoryDao
+import com.example.sharoma_finder.data.SubCategoryDao
 import com.example.sharoma_finder.domain.BannerModel
 import com.example.sharoma_finder.domain.CategoryModel
-import com.google.firebase.database.DataSnapshot
-import com.google.firebase.database.DatabaseError
+import com.example.sharoma_finder.domain.SubCategoryModel
 import com.google.firebase.database.FirebaseDatabase
-import com.google.firebase.database.ValueEventListener
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.tasks.await
@@ -17,7 +16,8 @@ import kotlinx.coroutines.withTimeoutOrNull
 
 class DashboardRepository(
     private val categoryDao: CategoryDao,
-    private val bannerDao: BannerDao
+    private val bannerDao: BannerDao,
+    private val subCategoryDao: SubCategoryDao  // ✅ ADĂUGAT
 ) {
     private val firebaseDatabase = FirebaseDatabase.getInstance()
 
@@ -91,6 +91,46 @@ class DashboardRepository(
         }
     }
 
+    /**
+     * ✅ NOU: Sincronizează SUB-CATEGORIILE cu Firebase
+     */
+    suspend fun refreshSubCategories() {
+        withContext(Dispatchers.IO) {
+            try {
+                Log.d("DashboardRepo", "🌍 Syncing subcategories...")
+
+                val snapshot = withTimeoutOrNull(10000L) {
+                    firebaseDatabase.getReference("SubCategory").get().await()
+                }
+
+                if (snapshot == null) {
+                    Log.w("DashboardRepo", "⏰ SubCategory sync timeout")
+                    return@withContext
+                }
+
+                val subCategories = mutableListOf<SubCategoryModel>()
+                for (child in snapshot.children) {
+                    child.getValue(SubCategoryModel::class.java)?.let { subCategories.add(it) }
+                }
+
+                if (subCategories.isNotEmpty()) {
+                    subCategoryDao.insertAll(subCategories)
+                    Log.d("DashboardRepo", "✅ Synced ${subCategories.size} subcategories")
+                }
+
+            } catch (e: Exception) {
+                Log.e("DashboardRepo", "❌ SubCategory sync failed: ${e.message}")
+            }
+        }
+    }
+
+    /**
+     * ✅ NOU: Funcție pentru a obține subcategoriile din CACHE
+     */
+    fun getSubCategoriesByCategory(categoryId: String): LiveData<List<SubCategoryModel>> {
+        return subCategoryDao.getSubCategoriesByCategory(categoryId)
+    }
+
     // ✅ OPȚIONAL: Verifică dacă avem cache
     suspend fun hasCachedCategories(): Boolean {
         return withContext(Dispatchers.IO) {
@@ -106,6 +146,16 @@ class DashboardRepository(
         return withContext(Dispatchers.IO) {
             try {
                 bannerDao.getBannerCount() > 0
+            } catch (e: Exception) {
+                false
+            }
+        }
+    }
+
+    suspend fun hasCachedSubCategories(categoryId: String): Boolean {
+        return withContext(Dispatchers.IO) {
+            try {
+                subCategoryDao.getSubCategoryCount(categoryId) > 0
             } catch (e: Exception) {
                 false
             }

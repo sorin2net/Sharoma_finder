@@ -37,7 +37,8 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     private val storeRepository = StoreRepository(database.storeDao())
     private val dashboardRepository = DashboardRepository(
         database.categoryDao(),
-        database.bannerDao()
+        database.bannerDao(),
+        database.subCategoryDao()  // ✅ ADĂUGAT
     )
 
     private lateinit var localStoreObserver: Observer<List<StoreModel>>
@@ -134,6 +135,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                     launch { storeRepository.refreshStores() }
                     launch { dashboardRepository.refreshCategories() }
                     launch { dashboardRepository.refreshBanners() }
+                    launch { dashboardRepository.refreshSubCategories() }  // ✅ ADĂUGAT
                 }
                 Log.d("DashboardVM", "✅ Network sync completed")
             } catch (e: Exception) {

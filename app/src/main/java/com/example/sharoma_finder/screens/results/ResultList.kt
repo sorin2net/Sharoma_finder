@@ -19,7 +19,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.sharoma_finder.R
 import com.example.sharoma_finder.data.AppDatabase
-import com.example.sharoma_finder.domain.CategoryModel
 import com.example.sharoma_finder.domain.StoreModel
 import com.example.sharoma_finder.repository.Resource
 import com.example.sharoma_finder.repository.ResultsRepository
@@ -40,7 +39,8 @@ fun ResultList(
 ) {
     val context = LocalContext.current
     val database = AppDatabase.getDatabase(context)
-    val repository = ResultsRepository(database.storeDao())
+    // ✅ SCHIMBARE: Acum folosim SubCategoryDao în loc de StoreDao
+    val repository = ResultsRepository(database.subCategoryDao())
 
     var searchText by rememberSaveable { mutableStateOf("") }
     var selectedTag by remember { mutableStateOf("") }
@@ -260,7 +260,6 @@ fun ResultList(
                         list = popularSnapshot,
                         showPopularLoading = false,
                         onStoreClick = onStoreClick,
-                        // ✅ FIX CRITIC: Trimitem exact "popular" (lowercase, fără spații)
                         onSeeAllClick = {
                             Log.d("ResultList", "📤 See All clicked for POPULAR")
                             onSeeAllClick("popular")
@@ -291,7 +290,6 @@ fun ResultList(
                         list = nearestSnapshot,
                         showNearestLoading = false,
                         onStoreClick = onStoreClick,
-                        // ✅ FIX CRITIC: Trimitem exact "nearest" (lowercase, fără spații)
                         onSeeAllClick = {
                             Log.d("ResultList", "📤 See All clicked for NEAREST")
                             onSeeAllClick("nearest")
