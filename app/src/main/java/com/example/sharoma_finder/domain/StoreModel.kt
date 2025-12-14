@@ -7,14 +7,16 @@ import androidx.room.PrimaryKey
 import java.io.Serializable
 
 @Keep
-@Entity(tableName = "stores") // ✅ 1. Definim tabela pentru Room
+@Entity(tableName = "stores")
 data class StoreModel(
-    // ✅ 2. Cheia primară (am mutat-o la început pentru claritate)
     @PrimaryKey
     var firebaseKey: String = "",
 
     var Id: Int = 0,
+
+    // ✅ Păstrăm String, dar vom converti numeric → String în Repository
     var CategoryId: String = "",
+
     var Title: String = "",
     var Latitude: Double = 0.0,
     var Longitude: Double = 0.0,
@@ -26,12 +28,9 @@ data class StoreModel(
     var ImagePath: String = "",
     var IsPopular: Boolean = false,
 
-    // Room va folosi Converter-ul creat anterior pentru a salva această Listă
     var Tags: List<String> = emptyList()
 ) : Serializable {
 
-    // ✅ 3. Ignorăm acest câmp la salvarea în baza de date
-    // (el se calculează live pe baza GPS-ului, nu e o dată fixă a magazinului)
     @Ignore
     var distanceToUser: Float = -1f
 
@@ -51,12 +50,10 @@ data class StoreModel(
                 Address.isNotBlank()
     }
 
-    // Funcție pentru a verifica dacă restaurantul are un anumit tag
     fun hasTag(tagName: String): Boolean {
         return Tags.any { it.equals(tagName, ignoreCase = true) }
     }
 
-    // Funcție pentru a verifica dacă are cel puțin unul din tag-urile date
     fun hasAnyTag(tagNames: List<String>): Boolean {
         return Tags.any { tag ->
             tagNames.any { it.equals(tag, ignoreCase = true) }

@@ -8,7 +8,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
@@ -21,6 +20,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign // Import necesar adăugat
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
@@ -95,7 +95,9 @@ fun ProfileScreen(viewModel: DashboardViewModel) {
                     painter = painterResource(android.R.drawable.ic_menu_camera),
                     contentDescription = null,
                     tint = Color.White,
-                    modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 12.dp)
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 12.dp)
                 )
             }
 
@@ -124,6 +126,35 @@ fun ProfileScreen(viewModel: DashboardViewModel) {
                     )
                 }
             }
+
+            // --- SECȚIUNEA DE DEBUGGING ADĂUGATĂ ---
+            Spacer(modifier = Modifier.height(32.dp))
+
+            // ✅ BUTON DE DEBUGGING
+            Button(
+                onClick = {
+                    viewModel.forceRefreshAllData()
+                },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = colorResource(R.color.gold)
+                ),
+                modifier = Modifier.padding(horizontal = 32.dp)
+            ) {
+                Text(
+                    text = "🔄 Force Refresh Data",
+                    color = Color.Black,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            Text(
+                text = "Use this button to force download latest data from Firebase",
+                color = Color.Gray,
+                fontSize = 12.sp,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(horizontal = 32.dp, vertical = 8.dp)
+            )
         }
 
         // --- DIALOGUL DE EDITARE NUME ---

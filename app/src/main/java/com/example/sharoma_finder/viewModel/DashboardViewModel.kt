@@ -151,6 +151,39 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
+    /**
+     * ✅ FUNCȚIE DE DEBUGGING: Forțează refresh complet
+     * Șterge tot cache-ul și descarcă date noi de pe Firebase
+     */
+    fun forceRefreshAllData() {
+        viewModelScope.launch {
+            Log.d("DashboardVM", "🔄 FORCE REFRESH STARTED")
+
+            try {
+                withContext(Dispatchers.IO) {
+                    // Șterge tot cache-ul
+                    // NOTA: Asigură-te că StoreRepository are metoda clearCache().
+                    // Dacă nu, poți folosi: database.storeDao().deleteAll()
+                    launch { storeRepository.clearCache() }
+                    launch { database.categoryDao().deleteAll() }
+                    launch { database.bannerDao().deleteAll() }
+                    launch { database.subCategoryDao().deleteAll() }
+                }
+
+                // Așteaptă 500ms să se finalizeze ștergerea
+                kotlinx.coroutines.delay(500)
+
+                // Reîncarcă de pe Firebase
+                refreshDataFromNetwork()
+
+                Log.d("DashboardVM", "✅ FORCE REFRESH COMPLETED")
+
+            } catch (e: Exception) {
+                Log.e("DashboardVM", "❌ Force refresh failed: ${e.message}")
+            }
+        }
+    }
+
     fun fetchUserLocation() {
         val context = getApplication<Application>().applicationContext
 

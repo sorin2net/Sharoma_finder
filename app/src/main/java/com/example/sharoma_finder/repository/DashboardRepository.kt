@@ -8,6 +8,7 @@ import com.example.sharoma_finder.data.SubCategoryDao
 import com.example.sharoma_finder.domain.BannerModel
 import com.example.sharoma_finder.domain.CategoryModel
 import com.example.sharoma_finder.domain.SubCategoryModel
+import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.FirebaseDatabase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -17,17 +18,13 @@ import kotlinx.coroutines.withTimeoutOrNull
 class DashboardRepository(
     private val categoryDao: CategoryDao,
     private val bannerDao: BannerDao,
-    private val subCategoryDao: SubCategoryDao  // ✅ ADĂUGAT
+    private val subCategoryDao: SubCategoryDao
 ) {
     private val firebaseDatabase = FirebaseDatabase.getInstance()
 
-    // ✅ Sursa de adevăr e Room
     val allCategories: LiveData<List<CategoryModel>> = categoryDao.getAllCategories()
     val allBanners: LiveData<List<BannerModel>> = bannerDao.getAllBanners()
 
-    /**
-     * ✅ Sincronizează categoriile cu Firebase
-     */
     suspend fun refreshCategories() {
         withContext(Dispatchers.IO) {
             try {
@@ -58,9 +55,6 @@ class DashboardRepository(
         }
     }
 
-    /**
-     * ✅ Sincronizează banner-urile cu Firebase
-     */
     suspend fun refreshBanners() {
         withContext(Dispatchers.IO) {
             try {
@@ -92,7 +86,7 @@ class DashboardRepository(
     }
 
     /**
-     * ✅ NOU: Sincronizează SUB-CATEGORIILE cu Firebase
+     * ✅ FIX: Parsing manual pentru SubCategory (CategoryId poate fi Int/String)
      */
     suspend fun refreshSubCategories() {
         withContext(Dispatchers.IO) {
@@ -110,7 +104,10 @@ class DashboardRepository(
 
                 val subCategories = mutableListOf<SubCategoryModel>()
                 for (child in snapshot.children) {
-                    child.getValue(SubCategoryModel::class.java)?.let { subCategories.add(it) }
+                    val parsed = parseSubCategoryFromSnapshot(child)
+                    if (parsed != null) {
+                        subCategories.add(parsed)
+                    }
                 }
 
                 if (subCategories.isNotEmpty()) {
@@ -125,13 +122,35 @@ class DashboardRepository(
     }
 
     /**
-     * ✅ NOU: Funcție pentru a obține subcategoriile din CACHE
+     * ✅ HELPER: Parsează SubCategory manual
      */
+    private fun parseSubCategoryFromSnapshot(snapshot: DataSnapshot): SubCategoryModel? {
+        return try {
+            val map = snapshot.value as? Map<*, *> ?: return null
+
+            val categoryId = when (val catId = map["CategoryId"]) {
+                is Long -> catId.toString()
+                is Int -> catId.toString()
+                is String -> catId
+                else -> ""
+            }
+
+            SubCategoryModel(
+                Id = (map["Id"] as? Long)?.toInt() ?: 0,
+                CategoryId = categoryId,
+                ImagePath = map["ImagePath"] as? String ?: "",
+                Name = map["Name"] as? String ?: ""
+            )
+        } catch (e: Exception) {
+            Log.e("DashboardRepo", "Failed to parse SubCategory: ${e.message}")
+            null
+        }
+    }
+
     fun getSubCategoriesByCategory(categoryId: String): LiveData<List<SubCategoryModel>> {
         return subCategoryDao.getSubCategoriesByCategory(categoryId)
     }
 
-    // ✅ OPȚIONAL: Verifică dacă avem cache
     suspend fun hasCachedCategories(): Boolean {
         return withContext(Dispatchers.IO) {
             try {
