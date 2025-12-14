@@ -32,7 +32,6 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.sharoma_finder.R
 import com.example.sharoma_finder.domain.StoreModel
-import java.util.Locale
 
 @Composable
 fun StoreDetail(item: StoreModel) {
@@ -52,7 +51,7 @@ fun StoreDetail(item: StoreModel) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Image(
                 painter = painterResource(id = R.drawable.location),
-                contentDescription = null, // Iconița e decorativă, textul de lângă e important
+                contentDescription = null,
                 modifier = Modifier.size(16.dp)
             )
             Text(
@@ -64,11 +63,19 @@ fun StoreDetail(item: StoreModel) {
             )
         }
 
-        // Afișăm distanța doar dacă a fost calculată
+        // ✅ MODIFICARE: Afișare inteligentă distanță (metri/km)
         if (item.distanceToUser > 0) {
             Row(verticalAlignment = Alignment.CenterVertically) {
+                val distanceText = if (item.distanceToUser < 1000) {
+                    // Sub 1 km → afișează în metri
+                    "${item.distanceToUser.toInt()} m away"
+                } else {
+                    // Peste 1 km → afișează în kilometri cu 1 zecimală
+                    String.format("%.1f km away", item.distanceToUser / 1000)
+                }
+
                 Text(
-                    text = String.format(Locale.US, "%.2f km away", item.distanceToUser / 1000),
+                    text = distanceText,
                     color = colorResource(R.color.gold),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold
@@ -97,7 +104,6 @@ fun StoreDetail(item: StoreModel) {
 fun StoreImage(item: StoreModel) {
     AsyncImage(
         model = item.ImagePath,
-        // --- ACCESIBILITATE: Descriere imagine ---
         contentDescription = "Image of ${item.Title}",
         modifier = Modifier
             .size(95.dp)
@@ -139,7 +145,6 @@ fun ItemsNearest(
         IconButton(onClick = onFavoriteClick) {
             Icon(
                 imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-                // --- ACCESIBILITATE: Descriere buton dinamică ---
                 contentDescription = if (isFavorite) "Remove ${item.Title} from favorites" else "Add ${item.Title} to favorites",
                 tint = colorResource(R.color.gold),
                 modifier = Modifier.size(24.dp)
