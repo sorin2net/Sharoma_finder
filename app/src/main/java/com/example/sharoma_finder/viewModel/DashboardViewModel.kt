@@ -10,7 +10,7 @@ import android.widget.Toast
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.core.app.ActivityCompat
-import androidx.core.content.ContextCompat // ✅ Import necesar pentru checkSelfPermission
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.Observer
@@ -72,7 +72,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     var hasInternetAccess = mutableStateOf(false)
         private set
 
-    // ✅ ADĂUGAT: Starea permisiunii de locație (pentru UI)
+    // ✅ ADĂUGAT: Starea permisiunii de locație (folosim mutableStateOf pentru compatibilitate cu Compose)
     var isLocationPermissionGranted = mutableStateOf(false)
 
     var userName = mutableStateOf("Utilizatorule")
@@ -107,43 +107,56 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         Log.d("DashboardViewModel", "Internet access: ${hasInternetAccess.value}")
     }
 
-    // ✅ ADĂUGAT: Funcție pentru verificarea permisiunii
+    // ✅ FIX APLICAT: Verificare sigură a permisiunii
     fun checkLocationPermission() {
         val context = getApplication<Application>().applicationContext
-        val fineLocation = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
-        val coarseLocation = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+
+        val fineLocation = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+
+        val coarseLocation = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.ACCESS_COARSE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
 
         val isGranted = fineLocation || coarseLocation
 
-        // Actualizăm starea doar dacă e diferită (pentru a evita recomposition inutil)
+        // ✅ OPTIMIZARE: Actualizăm doar dacă starea s-a schimbat
+        // Acest lucru previne bucle infinite de recomposition în UI
         if (isLocationPermissionGranted.value != isGranted) {
-            isLocationPermissionGranted.value = isGranted
-            Log.d("DashboardViewModel", "📍 Permission check: $isGranted")
 
-            if (isGranted) {
-                // Dacă tocmai am primit permisiunea (sau o aveam), încercăm să luăm locația
-                fetchUserLocation()
+            // Ne asigurăm că actualizarea UI se face pe Main Thread
+            viewModelScope.launch(Dispatchers.Main) {
+                isLocationPermissionGranted.value = isGranted
+                Log.d("DashboardViewModel", "📍 Permission state changed: $isGranted")
+
+                if (isGranted) {
+                    // Dacă tocmai am primit permisiunea, luăm locația
+                    fetchUserLocation()
+                }
             }
         }
     }
 
+    // ✅ BONUS: Helper pentru MainActivity onResume
+    fun onAppResumed() {
+        checkLocationPermission()
+    }
+
     /**
      * ✅ LOGICĂ NOUĂ PENTRU SWITCH-UL DIN PROFIL
-     * Aceasta este chemată când userul apasă pe Switch.
      */
     fun onInternetSwitchToggled(enabled: Boolean, onShowConsentDialog: () -> Unit) {
         if (enabled) {
-            // Utilizatorul vrea să pornească internetul.
-            // Verificăm dacă a dat deja consimțământ anterior.
+            // Verificăm dacă a dat deja consimțământ anterior
             if (internetConsentManager.hasInternetConsent()) {
-                // Are consimțământ -> Pornim direct
                 enableInternetFeatures()
             } else {
-                // NU are consimțământ (a dat Deny sau e prima oară) -> Afișăm Dialogul
                 onShowConsentDialog()
             }
         } else {
-            // Utilizatorul vrea să oprească internetul -> Oprim direct
             disableInternetFeatures()
         }
     }
@@ -152,19 +165,17 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
      * ✅ Chemată când userul dă ACCEPT în dialogul din Profil
      */
     fun grantInternetConsentFromProfile() {
-        internetConsentManager.grantConsent() // Salvăm în SharedPreferences
-        enableInternetFeatures() // Pornim Firebase și sync
+        internetConsentManager.grantConsent()
+        enableInternetFeatures()
     }
 
     fun enableInternetFeatures() {
         Log.d("DashboardViewModel", "✅ Enabling internet features")
-        // Mai întâi verificăm dacă avem hardware internet
         if (internetConsentManager.isInternetAvailable()) {
             hasInternetAccess.value = true
             refreshDataFromNetwork()
         } else {
             Log.w("DashboardViewModel", "❌ Internet enabled by user but NO CONNECTION detected")
-            // Putem seta true la preferință, dar funcțional nu va merge sync-ul
             hasInternetAccess.value = true
         }
     }
@@ -232,7 +243,6 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     private fun refreshDataFromNetwork() {
-        // ✅ VERIFICARE DUBLĂ: Consimțământ + Conexiune Fizică
         if (!internetConsentManager.hasInternetConsent()) {
             return
         }
@@ -243,7 +253,6 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
 
         viewModelScope.launch {
             Log.d("DashboardVM", "🌐 Starting network sync...")
-
             try {
                 withContext(Dispatchers.IO) {
                     launch { storeRepository.refreshStores() }
@@ -256,7 +265,6 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                 Log.e("DashboardVM", "❌ Network sync failed: ${e.message}")
             }
 
-            // Safety timeout
             delay(5000)
             if (!isDataLoaded.value) {
                 Log.w("DashboardVM", "⏰ Timeout - forcing loaded state")
@@ -265,28 +273,20 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    /**
-     * ✅ PROTECȚIE FORCE REFRESH
-     * Acum verifică conexiunea FIZICĂ înainte de a șterge ceva.
-     */
     fun forceRefreshAllData(onFinished: () -> Unit) {
-        // 1. Verifică dacă utilizatorul a dat voie (din Switch)
         if (!internetConsentManager.hasInternetConsent()) {
             Log.w("DashboardVM", "⚠️ Cannot refresh - Internet access disabled in settings")
             onFinished()
             return
         }
 
-        // 2. ✅ PROTECȚIE CRITICĂ: Verifică dacă telefonul are efectiv internet
         if (!internetConsentManager.isInternetAvailable()) {
             Log.e("DashboardVM", "⛔ BLOCKED: Attempted to wipe cache without internet connection!")
-
-            // Afișăm un mesaj utilizatorului pe Main Thread
             viewModelScope.launch(Dispatchers.Main) {
                 Toast.makeText(getApplication(), "No internet connection! Cache kept safe. 🛡️", Toast.LENGTH_LONG).show()
                 onFinished()
             }
-            return // ⛔ OPRIT - Nu ștergem nimic!
+            return
         }
 
         if (isRefreshing.value) return
@@ -295,10 +295,8 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
 
         viewModelScope.launch {
             Log.d("DashboardVM", "🔄 FORCE REFRESH STARTED")
-
             try {
                 withContext(Dispatchers.IO) {
-                    // Doar acum, când suntem siguri că avem net, ștergem cache-ul
                     launch { storeRepository.clearCache() }
                     launch { database.categoryDao().deleteAll() }
                     launch { database.bannerDao().deleteAll() }
@@ -306,11 +304,9 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                 }
 
                 delay(500)
-                refreshDataFromNetwork() // Descarcă datele noi
+                refreshDataFromNetwork()
                 delay(1000)
-
                 Log.d("DashboardVM", "✅ FORCE REFRESH COMPLETED")
-
             } catch (e: Exception) {
                 Log.e("DashboardVM", "❌ Force refresh failed: ${e.message}")
             } finally {
@@ -324,17 +320,8 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun fetchUserLocation() {
         val context = getApplication<Application>().applicationContext
-
-        // Facem o ultimă verificare rapidă a permisiunilor înainte de a cere locația
-        val hasFine = ActivityCompat.checkSelfPermission(
-            context,
-            Manifest.permission.ACCESS_FINE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED
-
-        val hasCoarse = ActivityCompat.checkSelfPermission(
-            context,
-            Manifest.permission.ACCESS_COARSE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED
+        val hasFine = ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        val hasCoarse = ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
 
         if (hasFine || hasCoarse) {
             try {
@@ -376,7 +363,6 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             storeLoc.longitude = store.Longitude
             store.distanceToUser = location.distanceTo(storeLoc)
         }
-
         processData()
     }
 
@@ -396,7 +382,6 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         popularStores.addAll(popular)
 
         updateFavoriteStores()
-
         Log.d("DashboardVM", "✅ Processed: ${allStoresRaw.size} stores, ${popular.size} popular")
     }
 
@@ -450,11 +435,9 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         val favorites = allStoresRaw.filter { store ->
             favoriteStoreIds.contains(store.getUniqueId())
         }
-
         val sortedFavorites = favorites.sortedBy {
             if (it.distanceToUser < 0) Float.MAX_VALUE else it.distanceToUser
         }
-
         favoriteStores.clear()
         favoriteStores.addAll(sortedFavorites)
     }

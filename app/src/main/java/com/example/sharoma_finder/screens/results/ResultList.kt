@@ -76,54 +76,53 @@ fun ResultList(
     val showSubCategoryLoading = subCategoryState is Resource.Loading
     val subCategorySnapshot = remember(subCategoryList) { listToSnapshot(subCategoryList) }
 
-    // 1. Calculăm lista COMPLETĂ Popular (pentru logică)
-    val categoryPopularList = remember(allGlobalStores, id, selectedTag) {
+    // 1. Calculăm lista COMPLETĂ Popular (Optimizat cu asSequence)
+    val categoryPopularList = remember(allGlobalStores.size, id, selectedTag) {
         try {
-            allGlobalStores.filter { store ->
-                val matchesCategory = store.CategoryId == id && store.IsPopular && store.isValid()
-
-                if (selectedTag.isEmpty()) {
-                    matchesCategory
-                } else {
-                    matchesCategory && store.hasTag(selectedTag)
+            // ✅ Folosim asSequence() pentru lazy evaluation
+            allGlobalStores.asSequence()
+                .filter { store ->
+                    store.CategoryId == id &&
+                            store.IsPopular &&
+                            store.isValid() &&
+                            (selectedTag.isEmpty() || store.hasTag(selectedTag))
                 }
-            }
+                .toList()
         } catch (e: Exception) {
+            Log.e("ResultList", "Filter popular error: ${e.message}")
             hasError = true
             errorMessage = "Error filtering popular stores: ${e.message}"
             emptyList()
         }
     }
 
-    // 2. Calculăm lista COMPLETĂ Nearest (pentru logică și sortare)
-    val categoryNearestList = remember(allGlobalStores, id, userLocation, selectedTag) {
+    // 2. Calculăm lista COMPLETĂ Nearest (Optimizat cu asSequence)
+    val categoryNearestList = remember(allGlobalStores.size, id, userLocation, selectedTag) {
         try {
-            val filtered = allGlobalStores.filter { store ->
-                val matchesCategory = store.CategoryId == id && store.isValid()
-
-                if (selectedTag.isEmpty()) {
-                    matchesCategory
-                } else {
-                    matchesCategory && store.hasTag(selectedTag)
+            val filteredSequence = allGlobalStores.asSequence()
+                .filter { store ->
+                    store.CategoryId == id &&
+                            store.isValid() &&
+                            (selectedTag.isEmpty() || store.hasTag(selectedTag))
                 }
-            }
 
             if (userLocation != null) {
-                filtered.sortedBy {
+                // ✅ Sortăm doar dacă avem locație
+                filteredSequence.sortedBy {
                     if (it.distanceToUser < 0) Float.MAX_VALUE else it.distanceToUser
-                }
+                }.toList()
             } else {
-                filtered
+                filteredSequence.toList()
             }
         } catch (e: Exception) {
+            Log.e("ResultList", "Filter nearest error: ${e.message}")
             hasError = true
             errorMessage = "Error filtering nearest stores: ${e.message}"
             emptyList()
         }
     }
 
-    // ✅ MODIFICARE: Creăm snapshot-uri LIMITATE la 6 elemente pentru afișare
-    // Folosim .take(6) pentru a arăta doar primele 6, dar listele de mai sus rămân complete.
+    // ✅ SNAPSHOT-uri create DOAR pentru afișare (limitat la 6)
     val popularSnapshot = remember(categoryPopularList) {
         listToSnapshot(categoryPopularList.take(6))
     }
@@ -141,13 +140,13 @@ fun ResultList(
         """.trimIndent())
     }
 
-    // ✅ Search (Rămâne neschimbat - arată tot ce găsește)
-    val searchResults = remember(searchText, allGlobalStores) {
+    // ✅ Search (Optimizat și el cu asSequence)
+    val searchResults = remember(searchText, allGlobalStores.size) {
         if (searchText.isEmpty()) {
             emptyList()
         } else {
             try {
-                allGlobalStores
+                allGlobalStores.asSequence()
                     .filter { store ->
                         store.isValid() && (
                                 store.Title.contains(searchText, ignoreCase = true) ||
@@ -160,6 +159,7 @@ fun ResultList(
                     .sortedBy {
                         if (it.distanceToUser < 0) Float.MAX_VALUE else it.distanceToUser
                     }
+                    .toList()
             } catch (e: Exception) {
                 hasError = true
                 errorMessage = "Search error: ${e.message}"

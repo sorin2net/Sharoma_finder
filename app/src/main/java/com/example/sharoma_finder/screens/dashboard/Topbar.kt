@@ -41,11 +41,15 @@ fun TopBar(
     wishlistCount: Int
 ) {
     // 1. LOGICA PENTRU TITLUL DE REWARD (bazat pe wishlist)
+    // 1. LOGICA PENTRU TITLUL DE REWARD (bazat pe wishlist)
     val userRankTitle = when (wishlistCount) {
-        0 -> "Newcomer"
-        in 1..2 -> "Appetizer"
-        in 3..5 -> "Gourmand"
-        else -> "Connoisseur"
+        0 -> "La Dietă"          // 0 iteme (Ironic: nu a ales nimic încă)
+        in 1..2 -> "Ciugulitor"  // 1-2 iteme (Doar gustă puțin)
+        in 3..4 -> "Pofticios"   // 3-4 iteme (Începe să îi fie foame)
+        in 5..6 -> "Mâncăcios"   // 5-6 iteme (Îi place mâncarea)
+        in 7..8 -> "Gurmand"     // 7-8 iteme (Apreciază gustul bun)
+        in 9..10 -> "Devorator"  // 9-10 iteme (Nu iartă nimic)
+        else -> "Sultan"         // 11+ (Nivel suprem, ospăț regal)
     }
 
     // 2. LOGICA PENTRU SALUT (bazat pe oră)
