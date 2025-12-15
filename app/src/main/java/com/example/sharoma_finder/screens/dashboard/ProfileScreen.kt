@@ -1,27 +1,30 @@
 package com.example.sharoma_finder.screens.dashboard
 
-import android.widget.Toast // ✅ Import necesar pentru Toast
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.core.* // ✅ Importuri pentru animație
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Refresh // ✅ Iconita de refresh standard
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Wifi
+import androidx.compose.material.icons.filled.WifiOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate // ✅ Modificator pentru rotație
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext // ✅ Context pentru Toast
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -35,7 +38,7 @@ import java.io.File
 
 @Composable
 fun ProfileScreen(viewModel: DashboardViewModel) {
-    val context = LocalContext.current // ✅ Obținem contextul pentru Toast
+    val context = LocalContext.current
 
     var showEditDialog by remember { mutableStateOf(false) }
     var tempName by remember { mutableStateOf("") }
@@ -48,11 +51,8 @@ fun ProfileScreen(viewModel: DashboardViewModel) {
         }
     }
 
-    // ✅ LOGICA PENTRU ANIMAȚIE
-    // Creăm o tranziție infinită
+    // ✅ ANIMAȚIE PENTRU REFRESH
     val infiniteTransition = rememberInfiniteTransition(label = "refresh_spin")
-
-    // Calculăm unghiul de rotație doar dacă viewModel.isRefreshing este true
     val angle by infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = 360f,
@@ -72,7 +72,7 @@ fun ProfileScreen(viewModel: DashboardViewModel) {
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier.padding(top = 64.dp)
         ) {
-            // ... (Codul pentru Titlu, Poza de profil și Nume rămâne neschimbat) ...
+            // --- TITLE ---
             Text(
                 text = "My Profile",
                 fontSize = 28.sp,
@@ -81,7 +81,7 @@ fun ProfileScreen(viewModel: DashboardViewModel) {
                 modifier = Modifier.padding(bottom = 32.dp)
             )
 
-            // --- POZA DE PROFIL ---
+            // --- PROFILE PICTURE ---
             Box(
                 modifier = Modifier
                     .size(150.dp)
@@ -120,7 +120,7 @@ fun ProfileScreen(viewModel: DashboardViewModel) {
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // --- NUMELE SI BUTONUL DE EDITARE ---
+            // --- NAME + EDIT BUTTON ---
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center
@@ -146,37 +146,110 @@ fun ProfileScreen(viewModel: DashboardViewModel) {
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // ✅ BUTONUL CU ANIMAȚIE ȘI TOAST
+            // ✅ ========== INTERNET TOGGLE SWITCH ==========
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 32.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = colorResource(R.color.black3)
+                )
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = if (viewModel.hasInternetAccess.value) Icons.Default.Wifi else Icons.Default.WifiOff,
+                        contentDescription = "Internet",
+                        tint = if (viewModel.hasInternetAccess.value) colorResource(R.color.gold) else Color.Gray,
+                        modifier = Modifier.size(32.dp)
+                    )
+
+                    Spacer(modifier = Modifier.width(16.dp))
+
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Internet Access",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                        Text(
+                            text = if (viewModel.hasInternetAccess.value) "Online mode" else "Offline mode",
+                            fontSize = 12.sp,
+                            color = Color.Gray
+                        )
+                    }
+
+                    Switch(
+                        checked = viewModel.hasInternetAccess.value,
+                        onCheckedChange = { enabled ->
+                            if (enabled) {
+                                // ✅ FIX: Use enableInternetFeatures instead of grantInternetConsent
+                                viewModel.enableInternetFeatures()
+                                Toast.makeText(context, "Internet enabled ✅", Toast.LENGTH_SHORT).show()
+                            } else {
+                                // ✅ FIX: Use disableInternetFeatures instead of revokeInternetConsent
+                                viewModel.disableInternetFeatures()
+                                Toast.makeText(context, "Internet disabled ❌", Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = colorResource(R.color.gold),
+                            checkedTrackColor = colorResource(R.color.gold).copy(alpha = 0.5f),
+                            uncheckedThumbColor = Color.Gray,
+                            uncheckedTrackColor = Color.DarkGray
+                        )
+                    )
+                }
+            }
+
+            Text(
+                text = "Disable to use only cached data (offline mode)",
+                color = Color.Gray,
+                fontSize = 12.sp,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(horizontal = 32.dp, vertical = 8.dp)
+            )
+            // ==========================================
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // --- FORCE REFRESH BUTTON ---
             Button(
                 onClick = {
-                    // Apelăm funcția din ViewModel și definim ce se întâmplă la final (onFinished)
                     viewModel.forceRefreshAllData {
                         Toast.makeText(context, "Everything refreshed! 🚀", Toast.LENGTH_SHORT).show()
                     }
                 },
-                // Dezactivăm butonul în timpul încărcării pentru a preveni dublu-click
-                enabled = !viewModel.isRefreshing.value,
+                enabled = !viewModel.isRefreshing.value && viewModel.hasInternetAccess.value, // ✅ Dezactivat dacă e offline
                 colors = ButtonDefaults.buttonColors(
                     containerColor = colorResource(R.color.gold),
-                    disabledContainerColor = Color.DarkGray // Culoare când e dezactivat
+                    disabledContainerColor = Color.DarkGray
                 ),
                 modifier = Modifier.padding(horizontal = 32.dp)
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    // Dacă se încarcă, folosim unghiul animat. Dacă nu, stă fix.
                     Icon(
                         imageVector = Icons.Default.Refresh,
                         contentDescription = "Refresh",
-                        tint = if (viewModel.isRefreshing.value) Color.Gray else Color.Black,
-                        modifier = Modifier
-                            .rotate(if (viewModel.isRefreshing.value) angle else 0f) // Aici aplicăm rotația
+                        tint = if (viewModel.isRefreshing.value || !viewModel.hasInternetAccess.value) Color.Gray else Color.Black,
+                        modifier = Modifier.rotate(if (viewModel.isRefreshing.value) angle else 0f)
                     )
 
                     Spacer(modifier = Modifier.width(8.dp))
 
                     Text(
-                        text = if (viewModel.isRefreshing.value) "Refreshing..." else "Force Refresh Data",
-                        color = if (viewModel.isRefreshing.value) Color.Gray else Color.Black,
+                        text = when {
+                            !viewModel.hasInternetAccess.value -> "Offline"
+                            viewModel.isRefreshing.value -> "Refreshing..."
+                            else -> "Force Refresh Data"
+                        },
+                        color = if (viewModel.isRefreshing.value || !viewModel.hasInternetAccess.value) Color.Gray else Color.Black,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -184,7 +257,11 @@ fun ProfileScreen(viewModel: DashboardViewModel) {
             }
 
             Text(
-                text = "Use this button to force download latest data from Firebase",
+                text = if (viewModel.hasInternetAccess.value) {
+                    "Force download latest data from Firebase"
+                } else {
+                    "Enable internet access to refresh data"
+                },
                 color = Color.Gray,
                 fontSize = 12.sp,
                 textAlign = TextAlign.Center,
@@ -192,7 +269,7 @@ fun ProfileScreen(viewModel: DashboardViewModel) {
             )
         }
 
-        // ... (Codul pentru Dialogul de editare nume rămâne neschimbat) ...
+        // --- EDIT NAME DIALOG ---
         if (showEditDialog) {
             AlertDialog(
                 onDismissRequest = { showEditDialog = false },

@@ -19,6 +19,7 @@ import com.example.sharoma_finder.domain.CategoryModel
 import com.example.sharoma_finder.domain.StoreModel
 import com.example.sharoma_finder.repository.DashboardRepository
 import com.example.sharoma_finder.repository.FavoritesManager
+import com.example.sharoma_finder.repository.InternetConsentManager
 import com.example.sharoma_finder.repository.StoreRepository
 import com.example.sharoma_finder.repository.UserManager
 import com.google.android.gms.location.LocationServices
@@ -31,14 +32,17 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
 
     private val favoritesManager = FavoritesManager(application.applicationContext)
     private val userManager = UserManager(application.applicationContext)
+
+    // ✅ ADĂUGAT: Manager pentru consimțământ internet
+    private val internetConsentManager = InternetConsentManager(application.applicationContext)
+
     private val analytics = FirebaseAnalytics.getInstance(application.applicationContext)
 
     private val database = AppDatabase.getDatabase(application)
 
-    // ✅ MODIFICARE: Adăugăm cacheMetadataDao în constructorul Repository-ului
     private val storeRepository = StoreRepository(
         database.storeDao(),
-        database.cacheMetadataDao() // 👈 AICI ESTE SCHIMBAREA
+        database.cacheMetadataDao()
     )
 
     private val dashboardRepository = DashboardRepository(
@@ -58,9 +62,11 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     private val allStoresRaw = mutableListOf<StoreModel>()
 
     val isDataLoaded = mutableStateOf(false)
-
-    // ✅ ADĂUGAT: Stare pentru a urmări dacă se face refresh (pentru animație)
     var isRefreshing = mutableStateOf(false)
+        private set
+
+    // ✅ ADĂUGAT: Flag pentru starea internetului
+    var hasInternetAccess = mutableStateOf(false)
         private set
 
     var userName = mutableStateOf("Utilizatorule")
@@ -73,9 +79,48 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         loadUserData()
         loadFavorites()
 
+        // ✅ MODIFICAT: Verificăm consimțământul la pornire
+        checkInternetConsent()
+
         checkLocalCache()
         observeLocalDatabase()
+
+        // ✅ MODIFICAT: Sincronizarea se face doar dacă avem consimțământ
+        if (internetConsentManager.hasInternetConsent()) {
+            refreshDataFromNetwork()
+        } else {
+            Log.w("DashboardViewModel", "⚠️ No internet consent - skipping network sync")
+        }
+    }
+
+    /**
+     * ✅ NOU: Verifică starea consimțământului internet
+     */
+    private fun checkInternetConsent() {
+        hasInternetAccess.value = internetConsentManager.canUseInternet()
+        Log.d("DashboardViewModel", "Internet access: ${hasInternetAccess.value}")
+    }
+
+    /**
+     * ✅ NOU: Activează funcționalitățile internet (după ce utilizatorul acceptă)
+     */
+    fun enableInternetFeatures() {
+        Log.d("DashboardViewModel", "✅ Enabling internet features")
+        hasInternetAccess.value = true
+
+        // Pornim sincronizarea cu Firebase
         refreshDataFromNetwork()
+    }
+
+    /**
+     * ✅ NOU: Dezactivează funcționalitățile internet (după ce utilizatorul refuză)
+     */
+    fun disableInternetFeatures() {
+        Log.d("DashboardViewModel", "❌ Disabling internet features")
+        hasInternetAccess.value = false
+
+        // Aplicația va funcționa doar cu datele din cache
+        Log.d("DashboardViewModel", "Operating in OFFLINE mode - using cached data only")
     }
 
     private fun checkLocalCache() {
@@ -100,7 +145,6 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                         }
                     }
 
-                    // ✅ FIX CRITIC: Setăm isDataLoaded = true IMEDIAT
                     isDataLoaded.value = true
                 }
             } catch (e: Exception) {
@@ -136,13 +180,17 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     private fun refreshDataFromNetwork() {
+        // ✅ VERIFICARE: Nu încercăm sync dacă nu avem consimțământ
+        if (!internetConsentManager.hasInternetConsent()) {
+            Log.w("DashboardVM", "⚠️ Skipping network sync - no internet consent")
+            return
+        }
+
         viewModelScope.launch {
             Log.d("DashboardVM", "🌐 Starting network sync...")
 
             try {
                 withContext(Dispatchers.IO) {
-                    // Rulează toate sincronizările în paralel pentru viteză maximă
-                    // refreshStores() va verifica acum automat dacă cache-ul e expirat
                     launch { storeRepository.refreshStores() }
                     launch { dashboardRepository.refreshCategories() }
                     launch { dashboardRepository.refreshBanners() }
@@ -153,7 +201,6 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                 Log.e("DashboardVM", "❌ Network sync failed: ${e.message}")
             }
 
-            // Safety timeout
             kotlinx.coroutines.delay(5000)
             if (!isDataLoaded.value) {
                 Log.w("DashboardVM", "⏰ Timeout - forcing loaded state")
@@ -162,37 +209,33 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    /**
-     * ✅ ACTUALIZAT: Funcție de debugging cu animație și callback
-     * Șterge tot cache-ul și descarcă date noi de pe Firebase
-     */
     fun forceRefreshAllData(onFinished: () -> Unit) {
-        // Dacă deja se încarcă, nu facem nimic
+        // ✅ VERIFICARE: Nu permitem refresh dacă nu avem consimțământ
+        if (!internetConsentManager.hasInternetConsent()) {
+            Log.w("DashboardVM", "⚠️ Cannot refresh - no internet consent")
+            onFinished() // Chemăm callback-ul imediat
+            return
+        }
+
         if (isRefreshing.value) return
 
-        isRefreshing.value = true // Pornim animația
+        isRefreshing.value = true
 
         viewModelScope.launch {
             Log.d("DashboardVM", "🔄 FORCE REFRESH STARTED")
 
             try {
                 withContext(Dispatchers.IO) {
-                    // Șterge tot cache-ul (inclusiv metadata, prin storeRepository.clearCache())
                     launch { storeRepository.clearCache() }
                     launch { database.categoryDao().deleteAll() }
                     launch { database.bannerDao().deleteAll() }
                     launch { database.subCategoryDao().deleteAll() }
                 }
 
-                // Așteaptă puțin pentru a fi siguri că ștergerea e gata
                 kotlinx.coroutines.delay(500)
 
-                // Reîncarcă de pe Firebase
-                // Deoarece am șters cache-ul (inclusiv metadata), refreshStores va vedea că nu are date valide și va descărca
                 refreshDataFromNetwork()
 
-                // Opțional: Mai adăugăm un delay mic artificial ca să se vadă animația
-                // dacă netul e prea rapid (UX mai bun)
                 kotlinx.coroutines.delay(1000)
 
                 Log.d("DashboardVM", "✅ FORCE REFRESH COMPLETED")
@@ -200,10 +243,9 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             } catch (e: Exception) {
                 Log.e("DashboardVM", "❌ Force refresh failed: ${e.message}")
             } finally {
-                // ✅ IMPORTANT: Oprim animația și notificăm UI-ul
                 withContext(Dispatchers.Main) {
                     isRefreshing.value = false
-                    onFinished() // Aici se va declanșa Toast-ul
+                    onFinished()
                 }
             }
         }

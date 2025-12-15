@@ -12,13 +12,18 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.colorResource
 import androidx.core.app.ActivityCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.example.sharoma_finder.domain.StoreModel
+import com.example.sharoma_finder.repository.InternetConsentManager
+import com.example.sharoma_finder.screens.common.InternetConsentDialog
 import com.example.sharoma_finder.screens.dashboard.DashboardScreen
 import com.example.sharoma_finder.screens.map.MapScreen
 import com.example.sharoma_finder.screens.results.AllStoresScreen
@@ -30,10 +35,17 @@ class MainActivity : ComponentActivity() {
 
     private val dashboardViewModel: DashboardViewModel by viewModels()
 
+    // ✅ ADĂUGAT: Manager pentru consimțământ internet
+    private lateinit var internetConsentManager: InternetConsentManager
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
+        // ✅ Inițializare manager
+        internetConsentManager = InternetConsentManager(applicationContext)
+
+        // ===== LOCATION PERMISSION (rămâne la fel) =====
         val locationPermissionRequest = registerForActivityResult(
             ActivityResultContracts.RequestMultiplePermissions()
         ) { permissions ->
@@ -62,7 +74,10 @@ class MainActivity : ComponentActivity() {
         }
 
         setContent {
-            MainApp(dashboardViewModel)
+            MainApp(
+                dashboardViewModel = dashboardViewModel,
+                internetConsentManager = internetConsentManager
+            )
         }
     }
 }
@@ -75,8 +90,12 @@ sealed class Screen {
 }
 
 @Composable
-fun MainApp(dashboardViewModel: DashboardViewModel) {
+fun MainApp(
+    dashboardViewModel: DashboardViewModel,
+    internetConsentManager: InternetConsentManager
+) {
     val systemUiController = rememberSystemUiController()
+    val context = LocalContext.current
 
     LaunchedEffect(Unit) {
         systemUiController.isNavigationBarVisible = false
@@ -88,6 +107,45 @@ fun MainApp(dashboardViewModel: DashboardViewModel) {
 
     val backStack = remember { mutableStateListOf<Screen>(Screen.Dashboard) }
     val currentScreen = backStack.last()
+
+    // ✅ ADĂUGAT: State pentru dialog internet consent
+    var showInternetConsentDialog by remember { mutableStateOf(false) }
+
+    // ✅ LOGICĂ: Verificăm la pornire dacă trebuie să cerem consimțământul
+    LaunchedEffect(Unit) {
+        Log.d("MainActivity", "🌐 Checking internet consent...")
+
+        // Dacă nu am întrebat încă și nu are consimțământ
+        if (!internetConsentManager.hasAskedForConsent() && !internetConsentManager.hasInternetConsent()) {
+            Log.d("MainActivity", "❓ Showing internet consent dialog")
+            showInternetConsentDialog = true
+        } else if (internetConsentManager.hasInternetConsent()) {
+            Log.d("MainActivity", "✅ Internet consent already granted")
+            // Dacă are consimțământ, pornim sincronizarea
+            dashboardViewModel.enableInternetFeatures()
+        } else {
+            Log.d("MainActivity", "❌ Internet consent declined previously")
+            // Utilizatorul a refuzat înainte - nu mai întrebăm
+        }
+    }
+
+    // ✅ DIALOG DE CONSIMȚĂMÂNT
+    if (showInternetConsentDialog) {
+        InternetConsentDialog(
+            onAccept = {
+                Log.d("MainActivity", "✅ User ACCEPTED internet consent")
+                internetConsentManager.grantConsent()
+                dashboardViewModel.enableInternetFeatures()
+                showInternetConsentDialog = false
+            },
+            onDecline = {
+                Log.d("MainActivity", "❌ User DECLINED internet consent")
+                internetConsentManager.markConsentAsked()
+                dashboardViewModel.disableInternetFeatures()
+                showInternetConsentDialog = false
+            }
+        )
+    }
 
     fun popBackStack() {
         if (backStack.size > 1) {
@@ -127,16 +185,13 @@ fun MainApp(dashboardViewModel: DashboardViewModel) {
             )
         }
         is Screen.ViewAll -> {
-            // ✅ FIX CRITIC: Verificăm mode-ul și trimitem lista corectă
             val listToSend = when (screen.mode) {
                 "popular" -> {
-                    // Filtrăm magazinele populare din categoria curentă
                     dashboardViewModel.getGlobalStoreList()
                         .filter { it.CategoryId == screen.id && it.IsPopular }
                         .sortedBy { if (it.distanceToUser < 0) Float.MAX_VALUE else it.distanceToUser }
                 }
                 "nearest", "nearest_all" -> {
-                    // Toate magazinele din categorie, sortate după distanță
                     dashboardViewModel.getGlobalStoreList()
                         .filter { it.CategoryId == screen.id }
                         .sortedBy { if (it.distanceToUser < 0) Float.MAX_VALUE else it.distanceToUser }
