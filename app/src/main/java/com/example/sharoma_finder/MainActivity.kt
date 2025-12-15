@@ -11,6 +11,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect // ✅ Import nou
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -21,6 +22,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.colorResource
 import androidx.core.app.ActivityCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.lifecycle.Lifecycle // ✅ Import nou
+import androidx.lifecycle.LifecycleEventObserver // ✅ Import nou
+import androidx.lifecycle.compose.LocalLifecycleOwner // ✅ Import nou
 import com.example.sharoma_finder.domain.StoreModel
 import com.example.sharoma_finder.repository.InternetConsentManager
 import com.example.sharoma_finder.screens.common.InternetConsentDialog
@@ -55,8 +59,10 @@ class MainActivity : ComponentActivity() {
             if (fineLocation || coarseLocation) {
                 Log.d("MainActivity", "✅ Location permission granted")
                 dashboardViewModel.fetchUserLocation()
+                dashboardViewModel.checkLocationPermission() // Actualizăm și starea explicit
             } else {
                 Log.w("MainActivity", "⚠️ Location permission denied")
+                dashboardViewModel.checkLocationPermission() // Actualizăm starea ca fiind false
             }
         }
 
@@ -74,6 +80,22 @@ class MainActivity : ComponentActivity() {
         }
 
         setContent {
+            // ✅ ADĂUGAT: Lifecycle observer pentru a verifica permisiunea la onResume
+            // Asta ajută dacă userul iese din app, activează locația în Setări și revine.
+            val lifecycleOwner = LocalLifecycleOwner.current
+            DisposableEffect(lifecycleOwner) {
+                val observer = LifecycleEventObserver { _, event ->
+                    if (event == Lifecycle.Event.ON_RESUME) {
+                        Log.d("MainActivity", "🔄 App Resumed - Checking location permission")
+                        dashboardViewModel.checkLocationPermission()
+                    }
+                }
+                lifecycleOwner.lifecycle.addObserver(observer)
+                onDispose {
+                    lifecycleOwner.lifecycle.removeObserver(observer)
+                }
+            }
+
             MainApp(
                 dashboardViewModel = dashboardViewModel,
                 internetConsentManager = internetConsentManager

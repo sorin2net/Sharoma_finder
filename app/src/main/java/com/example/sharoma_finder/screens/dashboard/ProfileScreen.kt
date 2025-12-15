@@ -1,10 +1,14 @@
 package com.example.sharoma_finder.screens.dashboard
 
+import android.Manifest
 import android.content.Context
+import android.content.Intent
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
+import android.net.Uri
+import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -18,6 +22,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.SignalWifiOff
 import androidx.compose.material.icons.filled.Wifi
@@ -50,14 +55,29 @@ fun ProfileScreen(viewModel: DashboardViewModel) {
     var tempName by remember { mutableStateOf("") }
 
     // ✅ MONITORIZARE INTERNET LIVE
-    // Această funcție este definită la finalul acestui fișier!
     val isSystemOnline by rememberConnectivityState()
 
+    // ✅ LAUNCHER PENTRU POZĂ
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia()
     ) { uri ->
         if (uri != null) {
             viewModel.updateUserImage(uri)
+        }
+    }
+
+    // ✅ LAUNCHER PENTRU PERMISIUNI LOCAȚIE (Nou)
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val granted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+                permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+
+        if (granted) {
+            viewModel.checkLocationPermission() // Actualizăm ViewModel
+            Toast.makeText(context, "Location activated! 📍", Toast.LENGTH_SHORT).show()
+        } else {
+            Toast.makeText(context, "Permission needed for nearest stores.", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -80,7 +100,9 @@ fun ProfileScreen(viewModel: DashboardViewModel) {
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.padding(top = 64.dp)
+            modifier = Modifier
+                .padding(top = 64.dp)
+                .padding(horizontal = 16.dp) // Padding lateral general
         ) {
             // --- TITLE ---
             Text(
@@ -160,7 +182,7 @@ fun ProfileScreen(viewModel: DashboardViewModel) {
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 32.dp),
+                    .padding(horizontal = 16.dp), // Ajustat padding
                 shape = RoundedCornerShape(12.dp),
                 colors = CardDefaults.cardColors(
                     containerColor = if (isSystemOnline) colorResource(R.color.black3) else Color.DarkGray.copy(alpha = 0.5f)
@@ -172,11 +194,10 @@ fun ProfileScreen(viewModel: DashboardViewModel) {
                         .padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Icon logic
                     val icon = when {
-                        !isSystemOnline -> Icons.Default.SignalWifiOff // Fără semnal
-                        viewModel.hasInternetAccess.value -> Icons.Default.Wifi // Online
-                        else -> Icons.Default.WifiOff // Oprit manual
+                        !isSystemOnline -> Icons.Default.SignalWifiOff
+                        viewModel.hasInternetAccess.value -> Icons.Default.Wifi
+                        else -> Icons.Default.WifiOff
                     }
 
                     val iconColor = when {
@@ -214,7 +235,7 @@ fun ProfileScreen(viewModel: DashboardViewModel) {
 
                     Switch(
                         checked = viewModel.hasInternetAccess.value && isSystemOnline,
-                        enabled = isSystemOnline, // ✅ Dezactivat dacă telefonul nu are net
+                        enabled = isSystemOnline,
                         onCheckedChange = { enabled ->
                             if (enabled) {
                                 viewModel.enableInternetFeatures()
@@ -241,14 +262,101 @@ fun ProfileScreen(viewModel: DashboardViewModel) {
                 color = if(!isSystemOnline) Color.Red else Color.Gray,
                 fontSize = 12.sp,
                 textAlign = TextAlign.Center,
-                modifier = Modifier.padding(horizontal = 32.dp, vertical = 8.dp)
+                modifier = Modifier.padding(horizontal = 32.dp, vertical = 4.dp)
             )
-            // ==========================================
+
+            // ✅ ========== LOCATION PERMISSION SECTION (NOU) ==========
+            Spacer(modifier = Modifier.height(16.dp))
+
+            if (!viewModel.isLocationPermissionGranted.value) {
+                // CAZUL 1: Permisiune lipsă - Buton Roșu Activ
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                        .background(
+                            color = colorResource(R.color.black3),
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                        .clickable {
+                            locationPermissionLauncher.launch(
+                                arrayOf(
+                                    Manifest.permission.ACCESS_FINE_LOCATION,
+                                    Manifest.permission.ACCESS_COARSE_LOCATION
+                                )
+                            )
+                        }
+                        .padding(16.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.LocationOn,
+                            contentDescription = null,
+                            tint = Color.Red,
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Column(modifier = Modifier.padding(start = 16.dp)) {
+                            Text(
+                                text = "Activate GPS Location",
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 16.sp
+                            )
+                            Text(
+                                text = "Required for Nearest Stores",
+                                color = Color.Gray,
+                                fontSize = 12.sp
+                            )
+                        }
+                    }
+                }
+                // Text pentru deschidere setări manuale
+                Text(
+                    text = "Button not working? Open Settings",
+                    color = colorResource(R.color.gold),
+                    fontSize = 12.sp,
+                    modifier = Modifier
+                        .padding(top = 8.dp)
+                        .clickable {
+                            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                data = Uri.fromParts("package", context.packageName, null)
+                            }
+                            context.startActivity(intent)
+                        }
+                )
+
+            } else {
+                // CAZUL 2: Permisiune Acordată - Card Verde informativ
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                        .background(colorResource(R.color.black3), RoundedCornerShape(12.dp))
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.LocationOn,
+                        contentDescription = null,
+                        tint = Color.Green,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Text(
+                        text = "Location Active",
+                        color = Color.White,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(start = 16.dp)
+                    )
+                }
+            }
+            // ========================================================
 
             Spacer(modifier = Modifier.height(24.dp))
 
             // --- FORCE REFRESH BUTTON ---
-            // ✅ Dezactivat complet dacă nu e sistemul online
             val canRefresh = !viewModel.isRefreshing.value && viewModel.hasInternetAccess.value && isSystemOnline
 
             Button(
@@ -262,7 +370,9 @@ fun ProfileScreen(viewModel: DashboardViewModel) {
                     containerColor = colorResource(R.color.gold),
                     disabledContainerColor = Color.DarkGray
                 ),
-                modifier = Modifier.padding(horizontal = 32.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
@@ -344,8 +454,7 @@ fun ProfileScreen(viewModel: DashboardViewModel) {
 }
 
 /**
- * ✅ HELPER PENTRU CONEXIUNE (Acesta lipsea!)
- * Pune acest cod la finalul fișierului ProfileScreen.kt
+ * ✅ HELPER PENTRU CONEXIUNE
  */
 @Composable
 fun rememberConnectivityState(): State<Boolean> {
@@ -354,7 +463,6 @@ fun rememberConnectivityState(): State<Boolean> {
         context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
     }
 
-    // Funcție ajutătoare pentru starea inițială
     fun isConnected(): Boolean {
         val network = connectivityManager.activeNetwork ?: return false
         val caps = connectivityManager.getNetworkCapabilities(network) ?: return false

@@ -39,7 +39,6 @@ fun ResultList(
 ) {
     val context = LocalContext.current
     val database = AppDatabase.getDatabase(context)
-    // ✅ SCHIMBARE: Acum folosim SubCategoryDao în loc de StoreDao
     val repository = ResultsRepository(database.subCategoryDao())
 
     var searchText by rememberSaveable { mutableStateOf("") }
@@ -77,7 +76,7 @@ fun ResultList(
     val showSubCategoryLoading = subCategoryState is Resource.Loading
     val subCategorySnapshot = remember(subCategoryList) { listToSnapshot(subCategoryList) }
 
-    // ✅ Filtrăm Popular (OFFLINE)
+    // 1. Calculăm lista COMPLETĂ Popular (pentru logică)
     val categoryPopularList = remember(allGlobalStores, id, selectedTag) {
         try {
             allGlobalStores.filter { store ->
@@ -96,7 +95,7 @@ fun ResultList(
         }
     }
 
-    // ✅ Filtrăm Nearest (OFFLINE)
+    // 2. Calculăm lista COMPLETĂ Nearest (pentru logică și sortare)
     val categoryNearestList = remember(allGlobalStores, id, userLocation, selectedTag) {
         try {
             val filtered = allGlobalStores.filter { store ->
@@ -123,19 +122,26 @@ fun ResultList(
         }
     }
 
-    val popularSnapshot = remember(categoryPopularList) { listToSnapshot(categoryPopularList) }
-    val nearestSnapshot = remember(categoryNearestList) { listToSnapshot(categoryNearestList) }
+    // ✅ MODIFICARE: Creăm snapshot-uri LIMITATE la 6 elemente pentru afișare
+    // Folosim .take(6) pentru a arăta doar primele 6, dar listele de mai sus rămân complete.
+    val popularSnapshot = remember(categoryPopularList) {
+        listToSnapshot(categoryPopularList.take(6))
+    }
 
-    // ✅ DEBUGGING: Logăm listele filtrate
+    val nearestSnapshot = remember(categoryNearestList) {
+        listToSnapshot(categoryNearestList.take(6))
+    }
+
+    // ✅ DEBUGGING: Logăm diferența dintre total și afișat
     LaunchedEffect(popularSnapshot.size, nearestSnapshot.size) {
         Log.d("ResultList", """
             📊 Filtered results:
-            - Popular: ${popularSnapshot.size}
-            - Nearest: ${nearestSnapshot.size}
+            - Popular Total: ${categoryPopularList.size} -> Displayed: ${popularSnapshot.size}
+            - Nearest Total: ${categoryNearestList.size} -> Displayed: ${nearestSnapshot.size}
         """.trimIndent())
     }
 
-    // ✅ Search (OFFLINE)
+    // ✅ Search (Rămâne neschimbat - arată tot ce găsește)
     val searchResults = remember(searchText, allGlobalStores) {
         if (searchText.isEmpty()) {
             emptyList()
@@ -253,16 +259,16 @@ fun ResultList(
                 )
             }
 
-            // ===== POPULAR SECTION =====
+            // ===== POPULAR SECTION (LIMITAT LA 6) =====
             item {
                 if (popularSnapshot.isNotEmpty()) {
                     PopularSection(
-                        list = popularSnapshot,
+                        list = popularSnapshot, // Conține max 6 iteme
                         showPopularLoading = false,
                         onStoreClick = onStoreClick,
                         onSeeAllClick = {
                             Log.d("ResultList", "📤 See All clicked for POPULAR")
-                            onSeeAllClick("popular")
+                            onSeeAllClick("popular") // MainActivity va încărca lista completă
                         },
                         isStoreFavorite = isStoreFavorite,
                         onFavoriteToggle = onFavoriteToggle
@@ -283,16 +289,16 @@ fun ResultList(
                 }
             }
 
-            // ===== NEAREST SECTION =====
+            // ===== NEAREST SECTION (LIMITAT LA 6) =====
             item {
                 if (nearestSnapshot.isNotEmpty()) {
                     NearestList(
-                        list = nearestSnapshot,
+                        list = nearestSnapshot, // Conține max 6 iteme
                         showNearestLoading = false,
                         onStoreClick = onStoreClick,
                         onSeeAllClick = {
                             Log.d("ResultList", "📤 See All clicked for NEAREST")
-                            onSeeAllClick("nearest")
+                            onSeeAllClick("nearest") // MainActivity va încărca lista completă
                         },
                         isStoreFavorite = isStoreFavorite,
                         onFavoriteToggle = onFavoriteToggle

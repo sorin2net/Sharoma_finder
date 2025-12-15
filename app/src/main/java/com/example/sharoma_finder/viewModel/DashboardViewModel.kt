@@ -6,10 +6,11 @@ import android.content.pm.PackageManager
 import android.location.Location
 import android.net.Uri
 import android.util.Log
-import android.widget.Toast // ✅ Adaugat pentru feedback direct
+import android.widget.Toast
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat // ✅ Import necesar pentru checkSelfPermission
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.Observer
@@ -71,6 +72,9 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     var hasInternetAccess = mutableStateOf(false)
         private set
 
+    // ✅ ADĂUGAT: Starea permisiunii de locație (pentru UI)
+    var isLocationPermissionGranted = mutableStateOf(false)
+
     var userName = mutableStateOf("Utilizatorule")
     var userImagePath = mutableStateOf<String?>(null)
     var currentUserLocation: Location? = null
@@ -83,6 +87,9 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
 
         // ✅ Verificăm consimțământul la pornire
         checkInternetConsent()
+
+        // ✅ Verificăm permisiunea de locație la pornire
+        checkLocationPermission()
 
         checkLocalCache()
         observeLocalDatabase()
@@ -98,6 +105,26 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     private fun checkInternetConsent() {
         hasInternetAccess.value = internetConsentManager.canUseInternet()
         Log.d("DashboardViewModel", "Internet access: ${hasInternetAccess.value}")
+    }
+
+    // ✅ ADĂUGAT: Funcție pentru verificarea permisiunii
+    fun checkLocationPermission() {
+        val context = getApplication<Application>().applicationContext
+        val fineLocation = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        val coarseLocation = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+
+        val isGranted = fineLocation || coarseLocation
+
+        // Actualizăm starea doar dacă e diferită (pentru a evita recomposition inutil)
+        if (isLocationPermissionGranted.value != isGranted) {
+            isLocationPermissionGranted.value = isGranted
+            Log.d("DashboardViewModel", "📍 Permission check: $isGranted")
+
+            if (isGranted) {
+                // Dacă tocmai am primit permisiunea (sau o aveam), încercăm să luăm locația
+                fetchUserLocation()
+            }
+        }
     }
 
     fun enableInternetFeatures() {
@@ -269,6 +296,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     fun fetchUserLocation() {
         val context = getApplication<Application>().applicationContext
 
+        // Facem o ultimă verificare rapidă a permisiunilor înainte de a cere locația
         val hasFine = ActivityCompat.checkSelfPermission(
             context,
             Manifest.permission.ACCESS_FINE_LOCATION
