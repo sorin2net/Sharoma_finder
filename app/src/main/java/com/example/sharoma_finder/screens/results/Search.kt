@@ -40,7 +40,7 @@ fun Search(
         },
         label = {
             Text(
-                text = "Find stores, restaurants, products...",
+                text = "Find restaurants...",
                 fontSize = 16.sp,
                 color = Color.White
             )
