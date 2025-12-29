@@ -79,12 +79,23 @@ class MainActivity : ComponentActivity() {
             val lifecycleOwner = LocalLifecycleOwner.current
             DisposableEffect(lifecycleOwner) {
                 val observer = LifecycleEventObserver { _, event ->
-                    if (event == Lifecycle.Event.ON_RESUME) {
-                        dashboardViewModel.checkLocationPermission()
+                    when (event) {
+                        Lifecycle.Event.ON_RESUME -> {
+                            // ✅ Pornim timerul când utilizatorul revine
+                            dashboardViewModel.startUsageTimer()
+                            dashboardViewModel.checkLocationPermission()
+                        }
+                        Lifecycle.Event.ON_PAUSE -> {
+                            // ✅ Oprim timerul imediat ce aplicația intră în background
+                            dashboardViewModel.stopUsageTimer()
+                        }
+                        else -> {}
                     }
                 }
                 lifecycleOwner.lifecycle.addObserver(observer)
-                onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+                onDispose {
+                    lifecycleOwner.lifecycle.removeObserver(observer)
+                }
             }
 
             MainApp(

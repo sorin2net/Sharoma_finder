@@ -1,5 +1,6 @@
 package com.example.sharoma_finder.viewModel
 
+import kotlinx.coroutines.isActive
 import android.Manifest
 import android.app.Application
 import android.content.pm.PackageManager
@@ -40,9 +41,9 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     private val internetConsentManager = InternetConsentManager(application.applicationContext)
 
     private val analytics = FirebaseAnalytics.getInstance(application.applicationContext)
-
+    private var usageTimerJob: kotlinx.coroutines.Job? = null
     private val database = AppDatabase.getDatabase(application)
-
+    private var isCheckingPermission = false
     private val storeRepository = StoreRepository(
         database.storeDao(),
         database.cacheMetadataDao()
@@ -125,14 +126,22 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     // Cronometru: 1 punct la fiecare 60 secunde
-    private fun startUsageTimer() {
-        viewModelScope.launch {
-            while (true) {
-                delay(60_000) // 1 minut
+    fun startUsageTimer() {
+        // Ne asigurăm că nu pornim mai multe timere în paralel
+        if (usageTimerJob?.isActive == true) return
+
+        usageTimerJob = viewModelScope.launch {
+            while (isActive) {
+                delay(60_000) // 1 minut de utilizare activă
                 addPoints(1)
-                Log.d("Points", "+1 point for usage")
+                Log.d("DashboardViewModel", "🪙 Punct acordat pentru utilizare activă")
             }
         }
+    }
+    fun stopUsageTimer() {
+        usageTimerJob?.cancel()
+        usageTimerJob = null
+        Log.d("DashboardViewModel", "🛑 Timer oprit (App în background)")
     }
     // Apelată când se deschide harta
     fun onStoreOpenedOnMap() {
@@ -146,34 +155,28 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
 
     // ✅ FIX APLICAT: Verificare sigură a permisiunii
     fun checkLocationPermission() {
+        // 1. Evităm apelurile multiple simultane
+        if (isCheckingPermission) return
+        isCheckingPermission = true
+
         val context = getApplication<Application>().applicationContext
-
-        val fineLocation = ContextCompat.checkSelfPermission(
-            context,
-            Manifest.permission.ACCESS_FINE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED
-
-        val coarseLocation = ContextCompat.checkSelfPermission(
-            context,
-            Manifest.permission.ACCESS_COARSE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED
-
+        val fineLocation = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        val coarseLocation = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
         val isGranted = fineLocation || coarseLocation
 
-        // ✅ OPTIMIZARE: Actualizăm doar dacă starea s-a schimbat
-        // Acest lucru previne bucle infinite de recomposition în UI
+        // 2. State Guard: Actualizăm doar dacă s-a schimbat ceva real
         if (isLocationPermissionGranted.value != isGranted) {
-
-            // Ne asigurăm că actualizarea UI se face pe Main Thread
             viewModelScope.launch(Dispatchers.Main) {
                 isLocationPermissionGranted.value = isGranted
                 Log.d("DashboardViewModel", "📍 Permission state changed: $isGranted")
 
                 if (isGranted) {
-                    // Dacă tocmai am primit permisiunea, luăm locația
                     fetchUserLocation()
                 }
+                isCheckingPermission = false // Eliberăm flag-ul după actualizare
             }
+        } else {
+            isCheckingPermission = false // Eliberăm flag-ul dacă nu a fost nevoie de update
         }
     }
 
