@@ -19,7 +19,7 @@ class MyApplication : Application() {
 
         Log.d("MyApplication", "🚀 App starting - Initializing Firebase")
 
-        // ✅ Inițializare Firebase (dacă nu e deja inițializat automat)
+        // 1. Inițializare Firebase Core
         try {
             FirebaseApp.initializeApp(this)
             Log.d("MyApplication", "✅ Firebase initialized")
@@ -27,26 +27,26 @@ class MyApplication : Application() {
             Log.e("MyApplication", "❌ Firebase init failed: ${e.message}")
         }
 
-        // ✅ ACTIVEAZĂ Crashlytics (CRITIC!)
-        // Fără asta, crash-urile NU vor fi raportate în Firebase Console
-        FirebaseCrashlytics.getInstance().apply {
-            setCrashlyticsCollectionEnabled(true) // Activează raportarea
+        // 2. ✅ CONFIGURARE CRASHLYTICS CU FALLBACK (Soluția propusă)
+        try {
+            val crashlytics = FirebaseCrashlytics.getInstance()
 
-            // ✅ BONUS: Setează userId pentru debugging mai ușor
-            // (Poți să-l schimbi când user-ul se loghează)
-            setUserId("anonymous_user")
+            crashlytics.apply {
+                setCrashlyticsCollectionEnabled(true) // Activează raportarea
 
-            // ✅ Adaugă custom keys pentru debugging
-            setCustomKey("app_version", BuildConfig.VERSION_NAME)
-            setCustomKey("debug_mode", BuildConfig.DEBUG)
+                // Identificator generic la pornire
+                setUserId("anonymous_user")
 
-            Log.d("MyApplication", "✅ Crashlytics enabled and configured")
-        }
+                // Adaugă chei personalizate pentru context
+                setCustomKey("app_version", BuildConfig.VERSION_NAME)
+                setCustomKey("debug_mode", BuildConfig.DEBUG)
+            }
+            Log.d("MyApplication", "✅ Crashlytics configured successfully")
 
-        // ✅ TESTEAZĂ Crashlytics (doar în debug mode)
-        if (BuildConfig.DEBUG) {
-            // Uncomment asta pentru a testa că Crashlytics funcționează:
-            // FirebaseCrashlytics.getInstance().log("Test crash log message")
+        } catch (e: Exception) {
+            // Dacă setup-ul Crashlytics eșuează, logăm eroarea local
+            Log.e("MyApplication", "❌ Crashlytics setup failed: ${e.message}")
+            // Aici poți implementa, în viitor, o salvare a log-urilor într-un fișier local
         }
     }
 }

@@ -75,37 +75,35 @@ fun MapScreen(
 
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
-    val scope = rememberCoroutineScope() // ✅ PASUL 1: Creăm scope pentru animație
+    val scope = rememberCoroutineScope()
 
     val storeLatlng = LatLng(store.Latitude, store.Longitude)
 
-    // ✅ Verificăm permisiunile LIVE
+    // ✅ MODIFICARE: State-uri pentru locația utilizatorului
     var hasLocationPermission by remember { mutableStateOf(false) }
     var userLocation by remember { mutableStateOf<LatLng?>(null) }
 
-    // Camera centrată pe magazin
+    // ✅ OPTIMIZARE: MarkerState creat o singură dată (nu se recreează la mișcare)
+    val userMarkerState = remember { MarkerState() }
+
     val cameraPositionState = rememberCameraPositionState {
         position = CameraPosition.fromLatLngZoom(storeLatlng, 15f)
     }
 
     val storeMarkerState = remember { MarkerState(position = storeLatlng) }
 
-    // ✅ FUNCȚIE HELPER: Verifică permisiunile
     fun checkPermissions(): Boolean {
         val fineLocation = ActivityCompat.checkSelfPermission(
             context,
             Manifest.permission.ACCESS_FINE_LOCATION
         ) == PackageManager.PERMISSION_GRANTED
-
         val coarseLocation = ActivityCompat.checkSelfPermission(
             context,
             Manifest.permission.ACCESS_COARSE_LOCATION
         ) == PackageManager.PERMISSION_GRANTED
-
         return fineLocation || coarseLocation
     }
 
-    // ✅ OBSERVER PENTRU LIFECYCLE
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
@@ -120,7 +118,7 @@ fun MapScreen(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    // ✅ TRACKING LOCAȚIE LIVE
+    // ✅ TRACKING LOCAȚIE LIVE OPTIMIZAT
     DisposableEffect(hasLocationPermission) {
         val currentPermission = checkPermissions()
         hasLocationPermission = currentPermission
@@ -148,7 +146,10 @@ fun MapScreen(
                     return
                 }
                 locationResult.lastLocation?.let { location ->
-                    userLocation = LatLng(location.latitude, location.longitude)
+                    val newLatLng = LatLng(location.latitude, location.longitude)
+                    // ✅ Actualizăm ambele stări
+                    userLocation = newLatLng
+                    userMarkerState.position = newLatLng // Markerul se mută lin pe hartă
                 }
             }
         }
@@ -169,21 +170,14 @@ fun MapScreen(
         }
     }
 
-    ConstraintLayout(
-        modifier = Modifier.fillMaxSize()
-    ) {
-        // ✅ PASUL 2: Adăugată referința 'centerBtn' în ConstraintLayout
+    ConstraintLayout(modifier = Modifier.fillMaxSize()) {
         val (map, detail, backBtn, centerBtn) = createRefs()
 
         GoogleMap(
-            modifier = Modifier
-                .fillMaxSize()
-                .constrainAs(map) {
-                    centerTo(parent)
-                },
+            modifier = Modifier.fillMaxSize().constrainAs(map) { centerTo(parent) },
             cameraPositionState = cameraPositionState
         ) {
-            // MARKER 1: MAGAZINUL (Roșu)
+            // Marker Magazin
             Marker(
                 state = storeMarkerState,
                 title = store.Title,
@@ -191,13 +185,10 @@ fun MapScreen(
                 icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)
             )
 
-            // MARKER 2: UTILIZATORUL (Albastru)
+            // ✅ Marker Utilizator Optimizat
             if (hasLocationPermission && userLocation != null) {
-                val userMarkerState = remember(userLocation) {
-                    MarkerState(position = userLocation!!)
-                }
                 Marker(
-                    state = userMarkerState,
+                    state = userMarkerState, // Folosește starea persistentă
                     title = "Your Location",
                     snippet = "You are here",
                     icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_BLUE)
@@ -205,15 +196,12 @@ fun MapScreen(
             }
         }
 
-        // Buton Back existent
+        // Buton Back
         Box(
             modifier = Modifier
                 .padding(top = 48.dp, start = 16.dp)
                 .size(45.dp)
-                .background(
-                    color = colorResource(R.color.black3).copy(alpha = 0.8f),
-                    shape = CircleShape
-                )
+                .background(colorResource(R.color.black3).copy(alpha = 0.8f), CircleShape)
                 .clickable { onBackClick() }
                 .constrainAs(backBtn) {
                     top.linkTo(parent.top)
@@ -221,15 +209,10 @@ fun MapScreen(
                 },
             contentAlignment = Alignment.Center
         ) {
-            Image(
-                painter = painterResource(R.drawable.back),
-                contentDescription = "Back",
-                modifier = Modifier.size(24.dp)
-            )
+            Image(painter = painterResource(R.drawable.back), contentDescription = "Back", modifier = Modifier.size(24.dp))
         }
 
-        // ✅ PASUL 3: Adăugăm butonul vizual „Center on me”
-        // Apare doar dacă avem permisiune și locație cunoscută
+        // Buton Center on me
         if (hasLocationPermission && userLocation != null) {
             Box(
                 modifier = Modifier
@@ -239,7 +222,6 @@ fun MapScreen(
                     .clickable {
                         userLocation?.let { latLng ->
                             scope.launch {
-                                // Animație fluidă de 1 secundă către locația user-ului
                                 cameraPositionState.animate(
                                     update = CameraUpdateFactory.newLatLngZoom(latLng, 15f),
                                     durationMs = 1000
@@ -262,7 +244,7 @@ fun MapScreen(
             }
         }
 
-        // Card cu detalii magazin (nivele de la baza ecranului)
+        // Card Detalii
         LazyColumn(
             modifier = Modifier
                 .wrapContentHeight()
@@ -276,34 +258,19 @@ fun MapScreen(
                 }
         ) {
             item {
-                ItemsNearest(
-                    item = store,
-                    isFavorite = isFavorite,
-                    onFavoriteClick = onFavoriteClick
-                )
+                ItemsNearest(item = store, isFavorite = isFavorite, onFavoriteClick = onFavoriteClick)
             }
-
             item {
                 Button(
                     shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = colorResource(R.color.gold)
-                    ),
-                    modifier = Modifier
-                        .padding(8.dp)
-                        .fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = colorResource(R.color.gold)),
+                    modifier = Modifier.padding(8.dp).fillMaxWidth(),
                     onClick = {
-                        val phoneNumber = "tel:" + store.Call
-                        val dialIntent = Intent(Intent.ACTION_DIAL, Uri.parse(phoneNumber))
+                        val dialIntent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${store.Call}"))
                         context.startActivity(dialIntent)
                     }
                 ) {
-                    Text(
-                        "Call to Store",
-                        fontSize = 16.sp,
-                        color = Color.Black,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Text("Call to Store", fontSize = 16.sp, color = Color.Black, fontWeight = FontWeight.Bold)
                 }
             }
         }

@@ -24,7 +24,7 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        // --- COD NOU PENTRU SECURITATE API KEY ---
+        // --- COD ACTUALIZAT PENTRU SECURITATE API KEY ---
         // 1. Citim fișierul local.properties
         val keystoreFile = project.rootProject.file("local.properties")
         val properties = Properties()
@@ -32,10 +32,16 @@ android {
             properties.load(keystoreFile.inputStream())
         }
 
-        // 2. Extragem cheia și o trimitem în Manifest
-        // Dacă cheia nu există în local.properties, punem un text gol ("") ca să nu dea eroare la build
-        manifestPlaceholders["MAPS_API_KEY"] = properties.getProperty("MAPS_API_KEY", "")
-        // -----------------------------------------
+        // 2. Extragem cheia cu validare strictă (Soluția nouă)
+        val apiKey = properties.getProperty("MAPS_API_KEY")
+
+        if (apiKey.isNullOrBlank()) {
+            // ✅ Această linie va opri procesul de Build dacă cheia lipsește sau e goală
+            throw org.gradle.api.GradleException("EROARE: MAPS_API_KEY nu a fost găsit în local.properties! Harta nu va funcționa fără această cheie.")
+        }
+
+        manifestPlaceholders["MAPS_API_KEY"] = apiKey
+        // ------------------------------------------------
     }
 
     buildTypes {

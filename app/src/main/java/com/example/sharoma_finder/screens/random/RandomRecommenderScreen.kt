@@ -160,37 +160,28 @@ fun RandomRecommenderScreen(
                         finalStore = null
 
                         scope.launch {
-                            // Am setat o durată mai lungă și un interval de bază mai lent
                             val iterations = 12
                             val baseDelay = 200L
 
-                            repeat(iterations) { iteration ->
-                                val nextStore = allStores.random()
+                            // Alegem câștigătorul de la început, dar îl afișăm doar la final
+                            val winner = allStores.random()
 
-                                // ✅ FORȚĂM ÎNCĂRCAREA IMAGINII ÎN CACHE ÎNAINTE DE AFIȘARE
+                            repeat(iterations) { iteration ->
+                                // Ultimele 2 iterații vor tinde spre câștigător sau rămân random
+                                val nextStore = if (iteration == iterations - 1) winner else allStores.random()
+
                                 val request = ImageRequest.Builder(context)
                                     .data(nextStore.ImagePath)
                                     .build()
-                                context.imageLoader.execute(request)
 
+                                context.imageLoader.execute(request)
                                 currentDisplayStore = nextStore
 
-                                // Delay progresiv pentru efectul de încetinire pe final
                                 val progressFactor = iteration.toFloat() / iterations
                                 val currentDelay = (baseDelay * (1 + progressFactor * 2)).toLong()
                                 delay(currentDelay)
                             }
 
-                            // Alegem câștigătorul final
-                            val winner = allStores[Random.nextInt(allStores.size)]
-
-                            // Ne asigurăm că și imaginea câștigătorului este gata
-                            val finalRequest = ImageRequest.Builder(context)
-                                .data(winner.ImagePath)
-                                .build()
-                            context.imageLoader.execute(finalRequest)
-
-                            currentDisplayStore = winner
                             finalStore = winner
                             isSpinning = false
                         }
@@ -253,7 +244,8 @@ private fun StoreDisplayCard(
         modifier = Modifier
             .fillMaxSize()
             .clickable(enabled = !isSpinning) { onClick() }
-            .padding(16.dp),
+            // ✅ MODIFIED: Reduced overall padding, removed top padding completely
+            .padding(top = 0.dp, start = 12.dp, end = 12.dp, bottom = 12.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
@@ -262,13 +254,15 @@ private fun StoreDisplayCard(
             contentDescription = store.Title,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(200.dp)
+                // ✅ MODIFIED: Increased image height from 200.dp to 250.dp
+                .height(250.dp)
                 .clip(RoundedCornerShape(16.dp))
                 .background(colorResource(R.color.grey)),
             contentScale = ContentScale.Crop
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
+        // ✅ MODIFIED: Reduced spacing after the larger image
+        Spacer(modifier = Modifier.height(12.dp))
 
         Text(
             text = store.Title,
