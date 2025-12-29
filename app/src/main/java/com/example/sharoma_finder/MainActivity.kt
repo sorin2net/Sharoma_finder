@@ -181,6 +181,7 @@ fun MainApp(
         Screen.RandomRecommender -> {
             RandomRecommenderScreen(
                 allStores = dashboardViewModel.getGlobalStoreList(),
+                viewModel = dashboardViewModel,
                 onBackClick = { popBackStack() },
                 onStoreClick = { store ->
                     dashboardViewModel.onStoreOpenedOnMap()

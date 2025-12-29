@@ -29,11 +29,13 @@ import com.example.sharoma_finder.domain.StoreModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.random.Random
+import com.example.sharoma_finder.viewModel.DashboardViewModel
 
 @Composable
 fun RandomRecommenderScreen(
     allStores: List<StoreModel>,
     onBackClick: () -> Unit,
+    viewModel: DashboardViewModel,
     onStoreClick: (StoreModel) -> Unit
 ) {
     var isSpinning by remember { mutableStateOf(false) }
@@ -163,6 +165,7 @@ fun RandomRecommenderScreen(
             // === SPIN BUTTON ===
             Button(
                 onClick = {
+                    viewModel.addPoints(10)
                     if (!isSpinning && allStores.isNotEmpty()) {
                         isSpinning = true
                         finalStore = null
