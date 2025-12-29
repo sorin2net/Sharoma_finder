@@ -9,15 +9,16 @@ import com.example.sharoma_finder.domain.SubCategoryModel
 
 @Dao
 interface SubCategoryDao {
-    @Query("SELECT * FROM subcategories WHERE CategoryId = :categoryId ORDER BY Id ASC")
+    @Query("SELECT * FROM subcategories WHERE CategoryIds LIKE '%' || :categoryId || '%' ORDER BY Id ASC")
     fun getSubCategoriesByCategory(categoryId: String): LiveData<List<SubCategoryModel>>
 
-    @Query("SELECT * FROM subcategories WHERE CategoryId = :categoryId ORDER BY Id ASC")
+    @Query("SELECT * FROM subcategories WHERE CategoryIds LIKE '%' || :categoryId || '%' ORDER BY Id ASC")
     fun getSubCategoriesByCategorySync(categoryId: String): List<SubCategoryModel>
 
     @Query("SELECT * FROM subcategories ORDER BY Id ASC")
     fun getAllSubCategories(): LiveData<List<SubCategoryModel>>
 
+    // ✅ Reintrodus conform structurii tale originale
     @Query("SELECT * FROM subcategories ORDER BY Id ASC")
     fun getAllSubCategoriesSync(): List<SubCategoryModel>
 
@@ -27,6 +28,6 @@ interface SubCategoryDao {
     @Query("DELETE FROM subcategories")
     suspend fun deleteAll()
 
-    @Query("SELECT COUNT(*) FROM subcategories WHERE CategoryId = :categoryId")
+    @Query("SELECT COUNT(*) FROM subcategories WHERE CategoryIds LIKE '%' || :categoryId || '%'")
     fun getSubCategoryCount(categoryId: String): Int
 }

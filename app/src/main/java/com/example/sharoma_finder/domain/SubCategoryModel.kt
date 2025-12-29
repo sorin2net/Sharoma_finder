@@ -9,7 +9,7 @@ import androidx.room.PrimaryKey
 data class SubCategoryModel(
     @PrimaryKey
     var Id: Int = 0,
-    var CategoryId: String = "",
+    var CategoryIds: List<String> = emptyList(),
     var ImagePath: String = "",
     var Name: String = ""
 )

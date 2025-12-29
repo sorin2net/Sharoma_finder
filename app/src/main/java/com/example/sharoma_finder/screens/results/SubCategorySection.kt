@@ -100,9 +100,3 @@ fun SubCategory(
     }
 }
 
-@Preview
-@Composable
-fun CategoryPreview() {
-    val item = SubCategoryModel(Id = 0, CategoryId = "0", ImagePath = "", Name = "Burger")  // ✅ SCHIMBAT
-    Category(item = item, isSelected = true, onItemClick = {})
-}

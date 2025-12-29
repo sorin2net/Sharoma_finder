@@ -128,16 +128,21 @@ class DashboardRepository(
         return try {
             val map = snapshot.value as? Map<*, *> ?: return null
 
-            val categoryId = when (val catId = map["CategoryId"]) {
-                is Long -> catId.toString()
-                is Int -> catId.toString()
-                is String -> catId
-                else -> ""
+            // Helper pentru a asigura formatul List<String>
+            fun convertToList(data: Any?): List<String> {
+                return when (data) {
+                    is List<*> -> data.map { it.toString() }
+                    is Long, is Int, is String -> listOf(data.toString())
+                    else -> emptyList()
+                }
             }
+
+            // Citim noua listă "CategoryIds" sau vechiul "CategoryId" pentru compatibilitate
+            val categoryIds = convertToList(map["CategoryIds"] ?: map["CategoryId"])
 
             SubCategoryModel(
                 Id = (map["Id"] as? Long)?.toInt() ?: 0,
-                CategoryId = categoryId,
+                CategoryIds = categoryIds,
                 ImagePath = map["ImagePath"] as? String ?: "",
                 Name = map["Name"] as? String ?: ""
             )

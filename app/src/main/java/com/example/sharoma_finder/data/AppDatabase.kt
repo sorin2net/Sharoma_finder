@@ -18,7 +18,7 @@ import com.example.sharoma_finder.domain.*
         SubCategoryModel::class,
         CacheMetadata::class
     ],
-    version = 5, // ✅ Păstrăm versiunea 5
+    version = 6, // ✅ Păstrăm versiunea 5
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -63,6 +63,19 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE stores_new RENAME TO stores")
             }
         }
+        private val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // Creăm tabelul nou cu structura CategoryIds (List/String)
+                db.execSQL("CREATE TABLE IF NOT EXISTS subcategories_new (Id INTEGER PRIMARY KEY NOT NULL, CategoryIds TEXT NOT NULL, ImagePath TEXT NOT NULL, Name TEXT NOT NULL)")
+
+                // Convertim datele vechi: punem ID-ul vechi într-un format de listă JSON ["id"]
+                db.execSQL("INSERT INTO subcategories_new (Id, CategoryIds, ImagePath, Name) SELECT Id, '[\"' || CategoryId || '\"]', ImagePath, Name FROM subcategories")
+
+                // Înlocuim tabelul vechi
+                db.execSQL("DROP TABLE subcategories")
+                db.execSQL("ALTER TABLE subcategories_new RENAME TO subcategories")
+            }
+        }
 
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
@@ -72,7 +85,7 @@ abstract class AppDatabase : RoomDatabase() {
                     "sharoma_database"
                 )
                     // ✅ Înregistrăm toate migrările, inclusiv cea nouă
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
                     .fallbackToDestructiveMigration()
                     .build()
                 INSTANCE = instance
