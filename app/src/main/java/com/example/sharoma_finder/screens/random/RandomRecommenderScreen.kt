@@ -44,7 +44,6 @@ fun RandomRecommenderScreen(
 
     val scope = rememberCoroutineScope()
 
-    // Animație pentru rotația butonului de spin
     val infiniteTransition = rememberInfiniteTransition(label = "spin_rotation")
     val spinButtonRotation by infiniteTransition.animateFloat(
         initialValue = 0f,
@@ -64,13 +63,11 @@ fun RandomRecommenderScreen(
             modifier = Modifier.fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // === HEADER CU BACK BUTTON ===
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 48.dp, start = 16.dp, end = 16.dp, bottom = 24.dp)
             ) {
-                // Back Button
                 Box(
                     modifier = Modifier
                         .size(45.dp)
@@ -89,7 +86,6 @@ fun RandomRecommenderScreen(
                     )
                 }
 
-                // Title
                 Text(
                     text = "Random Picker",
                     fontSize = 28.sp,
@@ -101,11 +97,10 @@ fun RandomRecommenderScreen(
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // === CARD PENTRU AFIȘARE RESTAURANT ===
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(400.dp)
+                    .height(420.dp) // Am mărit puțin înălțimea pentru a face loc distanței
                     .padding(horizontal = 32.dp),
                 shape = RoundedCornerShape(20.dp),
                 colors = CardDefaults.cardColors(
@@ -117,7 +112,6 @@ fun RandomRecommenderScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     when {
-                        // STARE INIȚIALĂ - Niciun restaurant selectat
                         currentDisplayStore == null && finalStore == null -> {
                             Column(
                                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -139,7 +133,6 @@ fun RandomRecommenderScreen(
                             }
                         }
 
-                        // SPINNING - Afișează restaurante rapid
                         isSpinning && currentDisplayStore != null -> {
                             StoreDisplayCard(
                                 store = currentDisplayStore!!,
@@ -148,7 +141,6 @@ fun RandomRecommenderScreen(
                             )
                         }
 
-                        // FINAL - Afișează restaurantul câștigător
                         !isSpinning && finalStore != null -> {
                             StoreDisplayCard(
                                 store = finalStore!!,
@@ -162,7 +154,6 @@ fun RandomRecommenderScreen(
 
             Spacer(modifier = Modifier.height(48.dp))
 
-            // === SPIN BUTTON ===
             Button(
                 onClick = {
                     viewModel.addPoints(10)
@@ -171,22 +162,17 @@ fun RandomRecommenderScreen(
                         finalStore = null
 
                         scope.launch {
-                            // Animație de spin - 2 secunde
                             val spinDuration = 2000L
-                            val intervalMs = 80L // Schimbă restaurantul la fiecare 80ms
+                            val intervalMs = 80L
                             val iterations = (spinDuration / intervalMs).toInt()
 
                             repeat(iterations) { iteration ->
-                                // Randomizează restaurantul afișat
                                 currentDisplayStore = allStores.random()
-
-                                // Delay progresiv pentru efect de slow-down
                                 val progressFactor = iteration.toFloat() / iterations
                                 val currentDelay = (intervalMs * (1 + progressFactor * 2)).toLong()
                                 delay(currentDelay)
                             }
 
-                            // Selectează restaurantul final
                             val winner = allStores[Random.nextInt(allStores.size)]
                             currentDisplayStore = winner
                             finalStore = winner
@@ -226,7 +212,6 @@ fun RandomRecommenderScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // === INFO TEXT ===
             Text(
                 text = when {
                     allStores.isEmpty() -> "No stores available"
@@ -242,9 +227,6 @@ fun RandomRecommenderScreen(
     }
 }
 
-/**
- * Card pentru afișarea restaurantului
- */
 @Composable
 private fun StoreDisplayCard(
     store: StoreModel,
@@ -259,7 +241,6 @@ private fun StoreDisplayCard(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        // Imagine restaurant
         AsyncImage(
             model = store.ImagePath,
             contentDescription = store.Title,
@@ -271,21 +252,33 @@ private fun StoreDisplayCard(
             contentScale = ContentScale.Crop
         )
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
-        // Titlu
         Text(
             text = store.Title,
             fontSize = 24.sp,
             fontWeight = FontWeight.Bold,
             color = Color.White,
             textAlign = TextAlign.Center,
-            maxLines = 2
+            maxLines = 1
         )
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(4.dp))
 
-        // Adresă
+        // ✅ DISTANȚA (Afișată exact ca în Wishlist)
+        if (store.distanceToUser >= 0) {
+            val distanceKm = store.distanceToUser / 1000
+            Text(
+                text = "${String.format("%.1f", distanceKm)} km away",
+                fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = colorResource(R.color.gold),
+                textAlign = TextAlign.Center
+            )
+        }
+
+        Spacer(modifier = Modifier.height(4.dp))
+
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Center
@@ -293,35 +286,33 @@ private fun StoreDisplayCard(
             Image(
                 painter = painterResource(R.drawable.location),
                 contentDescription = null,
-                modifier = Modifier.size(20.dp)
+                modifier = Modifier.size(18.dp)
             )
-            Spacer(modifier = Modifier.width(8.dp))
+            Spacer(modifier = Modifier.width(6.dp))
             Text(
                 text = store.ShortAddress,
-                fontSize = 16.sp,
+                fontSize = 14.sp,
                 color = Color.Gray,
                 textAlign = TextAlign.Center
             )
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(6.dp))
 
-        // Activitate
         Text(
             text = store.Activity,
             fontSize = 14.sp,
-            color = colorResource(R.color.gold),
+            color = Color.White.copy(alpha = 0.7f),
             textAlign = TextAlign.Center
         )
 
-        // Indicator vizual pentru starea finală
         if (!isSpinning) {
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(12.dp))
             Icon(
                 imageVector = Icons.Default.Casino,
                 contentDescription = "Winner",
                 tint = colorResource(R.color.gold),
-                modifier = Modifier.size(32.dp)
+                modifier = Modifier.size(28.dp)
             )
         }
     }
