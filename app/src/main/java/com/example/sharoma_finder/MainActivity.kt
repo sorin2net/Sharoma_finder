@@ -234,11 +234,13 @@ fun MainApp(
                 userLocation = dashboardViewModel.currentUserLocation
             )
         }
+
         is Screen.Map -> {
             MapScreen(
                 store = screen.store,
                 isFavorite = dashboardViewModel.isFavorite(screen.store),
-                onFavoriteClick = { dashboardViewModel.toggleFavorite(screen.store) }
+                onFavoriteClick = { dashboardViewModel.toggleFavorite(screen.store) },
+                onBackClick = { popBackStack() } // ✅ Transmitem funcția care șterge ultimul ecran din listă
             )
         }
     }

@@ -56,6 +56,13 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
 
     private lateinit var localStoreObserver: Observer<List<StoreModel>>
 
+    // ✅ PASUL 1: Adăugăm starea pentru tab în ViewModel pentru a supraviețui navigării
+    var selectedTab = mutableStateOf("Home")
+
+    fun updateTab(newTab: String) {
+        selectedTab.value = newTab
+    }
+
     val favoriteStoreIds = mutableStateListOf<String>()
     val favoriteStores = mutableStateListOf<StoreModel>()
     val nearestStoresTop5 = mutableStateListOf<StoreModel>()
@@ -139,6 +146,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             }
         }
     }
+
 
     // ✅ BONUS: Helper pentru MainActivity onResume
     fun onAppResumed() {

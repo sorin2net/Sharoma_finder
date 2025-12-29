@@ -11,6 +11,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable // ✅ Import nou pentru salvarea stării
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -27,7 +28,8 @@ fun DashboardScreen(
     onStoreClick: (StoreModel) -> Unit,
     viewModel: DashboardViewModel
 ) {
-    var selectedTab by remember { mutableStateOf("Home") }
+    // ✅ PASUL 1: Șters linia veche "var selectedTab by rememberSaveable..."
+    // Acum folosim starea persistentă din ViewModel.
 
     val categoryList by viewModel.loadCategory().observeAsState(initial = emptyList())
     val bannerList by viewModel.loadBanner().observeAsState(initial = emptyList())
@@ -48,20 +50,19 @@ fun DashboardScreen(
     val showCategoryLoading = categories.isEmpty()
     val showBannerLoading = banners.isEmpty()
 
-    // --- MODIFICARE: Funcție Wrapper pentru Analytics ---
-    // Când se dă click pe un magazin (oriunde în Dashboard), logăm și apoi navigăm
     val onStoreClickWithLog: (StoreModel) -> Unit = { store ->
-        viewModel.logViewStore(store) // 1. Trimite eveniment la Firebase
-        onStoreClick(store)           // 2. Navighează la hartă
+        viewModel.logViewStore(store)
+        onStoreClick(store)
     }
-    // ---------------------------------------------------
 
     Scaffold(
         containerColor = colorResource(R.color.black2),
         bottomBar = {
             BottomBar(
-                selected = selectedTab,
-                onItemClick = { newTab -> selectedTab = newTab }
+                // ✅ PASUL 2: Citește starea direct din ViewModel
+                selected = viewModel.selectedTab.value,
+                // ✅ PASUL 3: Actualizează starea în ViewModel la click
+                onItemClick = { newTab -> viewModel.updateTab(newTab) }
             )
         }
     ) { paddingValues ->
@@ -70,25 +71,19 @@ fun DashboardScreen(
                 .fillMaxSize()
                 .padding(paddingValues = paddingValues)
         ) {
-            when (selectedTab) {
+            // ✅ PASUL 4: Decidem ce ecran afișăm în funcție de starea din ViewModel
+            when (viewModel.selectedTab.value) {
                 "Home" -> {
                     LazyColumn(modifier = Modifier.fillMaxSize()) {
-                        // 1. TopBar cu datele din Profil SI Wishlist
                         item {
                             TopBar(
                                 userName = viewModel.userName.value,
                                 userImagePath = viewModel.userImagePath.value,
-                                wishlistCount = viewModel.favoriteStores.size // ✅ ADĂUGAT AICI
+                                wishlistCount = viewModel.favoriteStores.size
                             )
                         }
-
-                        // 2. Categoriile
                         item { CategorySection(categories, showCategoryLoading, onCategoryClick) }
-
-                        // 3. Bannerul
                         item { Banner(banners, showBannerLoading) }
-
-                        // 4. (Aici NU am adăugat nimic, conform cerinței tale)
                     }
                 }
                 "Support" -> SupportScreen()
@@ -97,7 +92,6 @@ fun DashboardScreen(
                         favoriteStores = viewModel.favoriteStores,
                         isDataLoaded = viewModel.isDataLoaded.value,
                         onFavoriteToggle = { store -> viewModel.toggleFavorite(store) },
-                        // AICI FOLOSIM CLICK-UL CU LOGARE
                         onStoreClick = onStoreClickWithLog,
                         isStoreFavorite = { store -> viewModel.isFavorite(store) }
                     )

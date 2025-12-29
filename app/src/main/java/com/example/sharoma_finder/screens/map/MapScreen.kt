@@ -5,13 +5,17 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.util.Log
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -28,6 +32,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.colorResource
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -57,7 +62,8 @@ import com.google.maps.android.compose.rememberCameraPositionState
 fun MapScreen(
     store: StoreModel,
     isFavorite: Boolean = false,
-    onFavoriteClick: () -> Unit = {}
+    onFavoriteClick: () -> Unit = {},
+    onBackClick: () -> Unit // ✅ Pasul 1: Adăugat parametrul pentru navigare
 ) {
     // ✅ Validare coordonate magazin
     if (store.Latitude == 0.0 || store.Longitude == 0.0) {
@@ -83,7 +89,7 @@ fun MapScreen(
 
     val storeLatlng = LatLng(store.Latitude, store.Longitude)
 
-    // ✅ FIX: Verificăm permisiunile LIVE
+    // ✅ Verificăm permisiunile LIVE
     var hasLocationPermission by remember { mutableStateOf(false) }
     var userLocation by remember { mutableStateOf<LatLng?>(null) }
 
@@ -109,42 +115,27 @@ fun MapScreen(
         return fineLocation || coarseLocation
     }
 
-    // ✅ OBSERVER PENTRU LIFECYCLE (detectează când app-ul revine în foreground)
+    // ✅ OBSERVER PENTRU LIFECYCLE
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
-                // Când userul se întoarce în app, verificăm din nou permisiunile
                 val currentPermission = checkPermissions()
-
                 if (hasLocationPermission && !currentPermission) {
-                    // Permisiunea a fost REVOCATĂ → Ștergem locația
-                    Log.w("MapScreen", "⚠️ Location permission REVOKED - Removing marker")
                     userLocation = null
                 }
-
                 hasLocationPermission = currentPermission
-                Log.d("MapScreen", "📍 Permission check on resume: $hasLocationPermission")
             }
         }
-
         lifecycleOwner.lifecycle.addObserver(observer)
-
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
-        }
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    // ✅ TRACKING LOCAȚIE LIVE (cu verificare permisiuni)
+    // ✅ TRACKING LOCAȚIE LIVE
     DisposableEffect(hasLocationPermission) {
-        Log.d("MapScreen", "🗺️ MapScreen started")
-
-        // Verificăm permisiunile la start
         val currentPermission = checkPermissions()
         hasLocationPermission = currentPermission
 
         if (!currentPermission) {
-            Log.w("MapScreen", "❌ No location permissions - Blue marker will NOT appear")
-            // ✅ FIX: Trebuie să returnăm onDispose chiar dacă nu facem nimic
             return@DisposableEffect onDispose { }
         }
 
@@ -153,7 +144,7 @@ fun MapScreen(
 
         val locationRequest = LocationRequest.Builder(
             Priority.PRIORITY_HIGH_ACCURACY,
-            5000L // Update la fiecare 5 secunde
+            5000L
         ).apply {
             setMinUpdateIntervalMillis(2000L)
             setMaxUpdateDelayMillis(10000L)
@@ -161,39 +152,27 @@ fun MapScreen(
 
         val locationCallback = object : LocationCallback() {
             override fun onLocationResult(locationResult: LocationResult) {
-                // ✅ RE-VERIFICĂM permisiunile la FIECARE update
                 if (!checkPermissions()) {
-                    Log.w("MapScreen", "⚠️ Permission lost during tracking - Stopping")
                     userLocation = null
                     fusedLocationClient.removeLocationUpdates(this)
                     return
                 }
-
                 locationResult.lastLocation?.let { location ->
                     userLocation = LatLng(location.latitude, location.longitude)
-                    Log.d("MapScreen", "📍 Live update: ${location.latitude}, ${location.longitude}")
                 }
             }
         }
 
         try {
-            fusedLocationClient.requestLocationUpdates(
-                locationRequest,
-                locationCallback,
-                null
-            )
-            Log.d("MapScreen", "✅ Location tracking STARTED")
+            fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, null)
         } catch (e: SecurityException) {
             Log.e("MapScreen", "❌ Security exception: ${e.message}")
         }
 
         onDispose {
-            Log.d("MapScreen", "🧹 Cleaning up location tracking")
             try {
                 fusedLocationClient.removeLocationUpdates(locationCallback)
                 userLocation = null
-                System.gc()
-                Log.d("MapScreen", "✅ Cleanup complete")
             } catch (e: Exception) {
                 Log.e("MapScreen", "❌ Cleanup error: ${e.message}")
             }
@@ -203,7 +182,8 @@ fun MapScreen(
     ConstraintLayout(
         modifier = Modifier.fillMaxSize()
     ) {
-        val (map, detail) = createRefs()
+        // ✅ Pasul 2: Adăugată referința 'backBtn' în ConstraintLayout
+        val (map, detail, backBtn) = createRefs()
 
         GoogleMap(
             modifier = Modifier
@@ -213,7 +193,7 @@ fun MapScreen(
                 },
             cameraPositionState = cameraPositionState
         ) {
-            // ✅ MARKER 1: MAGAZINUL (Roșu - ÎNTOTDEAUNA vizibil)
+            // MARKER 1: MAGAZINUL (Roșu)
             Marker(
                 state = storeMarkerState,
                 title = store.Title,
@@ -221,14 +201,11 @@ fun MapScreen(
                 icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)
             )
 
-            // ✅ MARKER 2: UTILIZATORUL (Albastru - DOAR dacă are permisiune ȘI locație)
+            // MARKER 2: UTILIZATORUL (Albastru)
             if (hasLocationPermission && userLocation != null) {
-                // ✅ FIX: Folosim remember(userLocation) pentru a crea state-ul.
-                // Asta elimină warning-ul și asigură că marker-ul se mută doar când locația se schimbă.
                 val userMarkerState = remember(userLocation) {
                     MarkerState(position = userLocation!!)
                 }
-
                 Marker(
                     state = userMarkerState,
                     title = "Your Location",
@@ -238,7 +215,30 @@ fun MapScreen(
             }
         }
 
-        // Card cu detalii magazin
+        // ✅ Pasul 3: Adăugat elementul vizual pentru Back
+        Box(
+            modifier = Modifier
+                .padding(top = 48.dp, start = 16.dp) // Padding pentru a nu fi sub status bar
+                .size(45.dp)
+                .background(
+                    color = colorResource(R.color.black3).copy(alpha = 0.8f),
+                    shape = CircleShape
+                )
+                .clickable { onBackClick() }
+                .constrainAs(backBtn) {
+                    top.linkTo(parent.top)
+                    start.linkTo(parent.start)
+                },
+            contentAlignment = Alignment.Center
+        ) {
+            Image(
+                painter = painterResource(R.drawable.back),
+                contentDescription = "Back",
+                modifier = Modifier.size(24.dp)
+            )
+        }
+
+        // Card cu detalii magazin (nivele de la baza ecranului)
         LazyColumn(
             modifier = Modifier
                 .wrapContentHeight()
