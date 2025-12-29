@@ -49,9 +49,7 @@ fun TopTile(title: String="title",onBackClick:()->Unit={}){
                     .padding(horizontal = 16.dp),
                 fontWeight = FontWeight.Bold
             )
-            Image(painter=painterResource(R.drawable.sample),
-                contentDescription=null
-                )
+            
         }
 
     }
