@@ -37,9 +37,10 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     private val favoritesManager = FavoritesManager(application.applicationContext)
     private val userManager = UserManager(application.applicationContext)
 
+
     // ✅ Manager pentru consimțământ internet
     private val internetConsentManager = InternetConsentManager(application.applicationContext)
-
+    private var lastTimerSaveTimestamp: Long = 0L
     private val analytics = FirebaseAnalytics.getInstance(application.applicationContext)
     private var usageTimerJob: kotlinx.coroutines.Job? = null
     private val database = AppDatabase.getDatabase(application)
@@ -127,21 +128,54 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
 
     // Cronometru: 1 punct la fiecare 60 secunde
     fun startUsageTimer() {
-        // Ne asigurăm că nu pornim mai multe timere în paralel
-        if (usageTimerJob?.isActive == true) return
+        // Verificăm dacă există un timer deja activ
+        if (usageTimerJob?.isActive == true) {
+            Log.d("DashboardVM", "⚠️ Timer already running")
+            return
+        }
 
-        usageTimerJob = viewModelScope.launch {
+        // Recuperăm ultima salvare
+        lastTimerSaveTimestamp = userManager.getLastTimerTimestamp()
+
+        usageTimerJob = viewModelScope.launch(Dispatchers.IO) {
+            var elapsedSeconds = 0L
+
+            // ✅ Recuperăm timpul pierdut dacă aplicația a fost închisă brusc
+            val now = System.currentTimeMillis()
+            if (lastTimerSaveTimestamp > 0L) {
+                val missedSeconds = (now - lastTimerSaveTimestamp) / 1000
+                if (missedSeconds in 1..300) { // Max 5 minute recuperare
+                    elapsedSeconds = missedSeconds
+                    Log.d("DashboardVM", "🔄 Recovered $missedSeconds seconds")
+                }
+            }
+
             while (isActive) {
-                delay(60_000) // 1 minut de utilizare activă
-                addPoints(1)
-                Log.d("DashboardViewModel", "🪙 Punct acordat pentru utilizare activă")
+                delay(1000) // 1 secundă
+                elapsedSeconds++
+
+                // La fiecare 60 secunde dăm puncte
+                if (elapsedSeconds % 60 == 0L) {
+                    withContext(Dispatchers.Main) {
+                        addPoints(1)
+                        Log.d("DashboardVM", "🪙 +1 XP (Total: ${userPoints.value})")
+                    }
+                }
+
+                // ✅ Salvăm progress-ul la fiecare 30 secunde
+                if (elapsedSeconds % 30 == 0L) {
+                    userManager.saveLastTimerTimestamp(System.currentTimeMillis())
+                }
             }
         }
     }
     fun stopUsageTimer() {
         usageTimerJob?.cancel()
         usageTimerJob = null
-        Log.d("DashboardViewModel", "🛑 Timer oprit (App în background)")
+
+        // ✅ Salvăm timestamp-ul când oprim timerul
+        userManager.saveLastTimerTimestamp(System.currentTimeMillis())
+        Log.d("DashboardVM", "🛑 Timer stopped and saved")
     }
     // Apelată când se deschide harta
     fun onStoreOpenedOnMap() {
@@ -428,10 +462,11 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
 
     override fun onCleared() {
         super.onCleared()
+        stopUsageTimer() // Oprim timerul când ViewModel-ul e distrus
         if (::localStoreObserver.isInitialized) {
             storeRepository.allStores.removeObserver(localStoreObserver)
         }
-        Log.d("DashboardViewModel", "=== CLEANUP ===")
+        Log.d("DashboardViewModel", "=== CLEANUP COMPLETE ===")
     }
 
     fun logViewStore(store: StoreModel) {

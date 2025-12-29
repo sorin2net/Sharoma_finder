@@ -263,14 +263,29 @@ fun MapScreen(
             item {
                 Button(
                     shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = colorResource(R.color.gold)),
-                    modifier = Modifier.padding(8.dp).fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = colorResource(R.color.gold),
+                        // ✅ Adăugăm o culoare gri pentru când butonul este dezactivat
+                        disabledContainerColor = Color.Gray
+                    ),
+                    modifier = Modifier
+                        .padding(8.dp)
+                        .fillMaxWidth(),
+                    // ✅ ADĂUGAT: Folosim funcția din StoreModel pentru a activa/dezactiva butonul
+                    enabled = store.hasValidPhoneNumber(),
                     onClick = {
-                        val dialIntent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${store.Call}"))
+                        // ✅ MODIFICAT: Folosim numărul curățat (fără spații sau cratime)
+                        val dialIntent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${store.getCleanPhoneNumber()}"))
                         context.startActivity(dialIntent)
                     }
                 ) {
-                    Text("Call to Store", fontSize = 16.sp, color = Color.Black, fontWeight = FontWeight.Bold)
+                    Text(
+                        // ✅ OPȚIONAL: Putem schimba textul dacă numărul lipsește
+                        text = if (store.hasValidPhoneNumber()) "Call to Store" else "Phone Unavailable",
+                        fontSize = 16.sp,
+                        color = if (store.hasValidPhoneNumber()) Color.Black else Color.LightGray,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
         }

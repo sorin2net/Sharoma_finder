@@ -19,6 +19,10 @@ class StoreRepository(
 ) {
     private val firebaseDatabase = FirebaseDatabase.getInstance()
 
+    // ✅ VARIABILE PENTRU RATE LIMITING
+    private var lastRefreshTime = 0L
+    private val MIN_REFRESH_INTERVAL = 60_000L // 1 minut
+
     val allStores: LiveData<List<StoreModel>> = storeDao.getAllStores()
 
     companion object {
@@ -48,15 +52,28 @@ class StoreRepository(
     }
 
     /**
-     * ✅ Sincronizare date cu suport pentru categorii multiple
+     * ✅ Sincronizare date cu Rate Limiting și suport pentru categorii multiple
      */
     suspend fun refreshStores(forceRefresh: Boolean = false) {
+        val now = System.currentTimeMillis()
+
+        // 1. Verificăm dacă a trecut destul timp (Rate Limit)
+        if (!forceRefresh && (now - lastRefreshTime) < MIN_REFRESH_INTERVAL) {
+            val remaining = (MIN_REFRESH_INTERVAL - (now - lastRefreshTime)) / 1000
+            Log.d("StoreRepository", "⏱️ Skipping refresh - too soon (${remaining}s remaining)")
+            return
+        }
+
         withContext(Dispatchers.IO) {
             try {
+                // 2. Verificăm validitatea cache-ului (dacă nu e force refresh)
                 if (!forceRefresh && isCacheValid()) {
                     Log.d("StoreRepository", "📦 Using cached data (still fresh)")
                     return@withContext
                 }
+
+                // Actualizăm timestamp-ul ultimei refresh-ări începute
+                lastRefreshTime = now
 
                 Log.d("StoreRepository", "🌍 Starting Firebase sync...")
 
@@ -88,7 +105,6 @@ class StoreRepository(
                         }
 
                         if (model.isValid()) {
-                            // Generăm cheia folosind prima categorie disponibilă dacă lipsește key-ul din Firebase
                             model.firebaseKey = child.key ?: "${model.CategoryIds.firstOrNull() ?: "unknown"}_${model.Id}"
                             freshStores.add(model)
                         } else {
@@ -106,7 +122,6 @@ class StoreRepository(
                 if (freshStores.isNotEmpty()) {
                     storeDao.insertAll(freshStores)
 
-                    val now = System.currentTimeMillis()
                     val expiresAt = now + (CACHE_VALIDITY_HOURS * 60 * 60 * 1000)
 
                     cacheMetadataDao.saveMetadata(
@@ -122,18 +137,19 @@ class StoreRepository(
 
             } catch (e: Exception) {
                 Log.e("StoreRepository", "❌ Sync Error: ${e.message}")
+                // În caz de eroare, resetăm timestamp-ul pentru a permite o reîncercare
+                lastRefreshTime = 0L
             }
         }
     }
 
     /**
-     * ✅ LOGICA NOUĂ DE PARSARE: Suportă CategoryIds, SubCategoryIds și Tags ca liste
+     * ✅ LOGICA DE PARSARE: Suportă CategoryIds, SubCategoryIds și Tags ca liste
      */
     private fun parseStoreFromSnapshot(snapshot: DataSnapshot): StoreModel? {
         try {
             val map = snapshot.value as? Map<*, *> ?: return null
 
-            // Helper pentru a asigura formatul List<String> indiferent de sursă
             fun convertToList(data: Any?): List<String> {
                 return when (data) {
                     is List<*> -> data.map { it.toString() }

@@ -24,6 +24,7 @@ import com.example.sharoma_finder.repository.Resource
 import com.example.sharoma_finder.repository.ResultsRepository
 import com.example.sharoma_finder.screens.common.ErrorScreen
 import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.delay
 
 @Composable
 fun ResultList(
@@ -41,12 +42,25 @@ fun ResultList(
     val database = AppDatabase.getDatabase(context)
     val repository = ResultsRepository(database.subCategoryDao())
 
+    // ✅ MODIFICARE: Două stări pentru căutare (Input instant vs Filtrare debounced)
+    var searchTextInput by rememberSaveable { mutableStateOf("") }
     var searchText by rememberSaveable { mutableStateOf("") }
+
     var selectedTag by remember { mutableStateOf("") }
     var hasError by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf("") }
 
-    // ✅ DEBUGGING: Logăm ce primim (am actualizat și aici logica de numărare pentru acuratețe)
+    // ✅ LOGICĂ DE DEBOUNCING: Așteptăm 300ms după ultima tastare
+    LaunchedEffect(searchTextInput) {
+        if (searchTextInput.isEmpty()) {
+            searchText = "" // Resetăm instant dacă șterge tot
+        } else {
+            delay(300) // Așteaptă 300ms
+            searchText = searchTextInput
+        }
+    }
+
+    // ✅ DEBUGGING: Logăm ce primim
     LaunchedEffect(allGlobalStores.size, id) {
         Log.d("ResultList", """
             📦 ResultList launched:
@@ -76,13 +90,11 @@ fun ResultList(
     val showSubCategoryLoading = subCategoryState is Resource.Loading
     val subCategorySnapshot = remember(subCategoryList) { listToSnapshot(subCategoryList) }
 
-    // 1. Calculăm lista COMPLETĂ Popular (Optimizat cu asSequence)
+    // 1. Calculăm lista Popular (Folosește searchText debounced)
     val categoryPopularList = remember(allGlobalStores.size, id, selectedTag) {
         try {
-            // ✅ Folosim asSequence() pentru lazy evaluation
             allGlobalStores.asSequence()
                 .filter { store ->
-                    // ✅ MODIFICARE EXECUTATĂ:
                     store.CategoryIds.contains(id) &&
                             store.IsPopular &&
                             store.isValid() &&
@@ -97,19 +109,17 @@ fun ResultList(
         }
     }
 
-    // 2. Calculăm lista COMPLETĂ Nearest (Optimizat cu asSequence)
+    // 2. Calculăm lista Nearest
     val categoryNearestList = remember(allGlobalStores.size, id, userLocation, selectedTag) {
         try {
             val filteredSequence = allGlobalStores.asSequence()
                 .filter { store ->
-                    // ✅ MODIFICARE EXECUTATĂ:
                     store.CategoryIds.contains(id) &&
                             store.isValid() &&
                             (selectedTag.isEmpty() || store.hasTag(selectedTag))
                 }
 
             if (userLocation != null) {
-                // ✅ Sortăm doar dacă avem locație
                 filteredSequence.sortedBy {
                     if (it.distanceToUser < 0) Float.MAX_VALUE else it.distanceToUser
                 }.toList()
@@ -124,7 +134,6 @@ fun ResultList(
         }
     }
 
-    // ✅ SNAPSHOT-uri create DOAR pentru afișare (limitat la 6)
     val popularSnapshot = remember(categoryPopularList) {
         listToSnapshot(categoryPopularList.take(6))
     }
@@ -133,20 +142,7 @@ fun ResultList(
         listToSnapshot(categoryNearestList.take(6))
     }
 
-    // ✅ DEBUGGING: Logăm diferența dintre total și afișat
-    LaunchedEffect(popularSnapshot.size, nearestSnapshot.size) {
-        Log.d("ResultList", """
-            📊 Filtered results:
-            - Popular Total: ${categoryPopularList.size} -> Displayed: ${popularSnapshot.size}
-            - Nearest Total: ${categoryNearestList.size} -> Displayed: ${nearestSnapshot.size}
-        """.trimIndent())
-    }
-
-    // ✅ Search (Optimizat și el cu asSequence)
-    // Modificăm logica de căutare pentru a include filtrul de categorie
-    // Modificăm blocul searchResults pentru a fi mai precis
-    // Modificăm blocul searchResults pentru a permite căutarea de fragmente (substrings)
-    // Actualizăm căutarea pentru a filtra STRICT după numele restaurantului (Title)
+    // ✅ Search Result (Folosește searchText debounced pentru performanță)
     val searchResults = remember(searchText, allGlobalStores.size, id) {
         if (searchText.isEmpty()) {
             emptyList()
@@ -154,13 +150,8 @@ fun ResultList(
             try {
                 allGlobalStores.asSequence()
                     .filter { store ->
-                        // 1. Verificăm dacă magazinul aparține categoriei curente (id)
                         val belongsToCategory = store.CategoryIds.contains(id)
-
-                        // 2. Verificăm DACĂ fragmentul căutat se află DOAR în Titlu
                         val matchesTitle = store.Title.contains(searchText, ignoreCase = true)
-
-                        // Eliminăm complet matchesTags pentru a nu mai căuta în "Kebab", "Falafel" etc.
                         belongsToCategory && store.isValid() && matchesTitle
                     }
                     .sortedBy {
@@ -194,9 +185,10 @@ fun ResultList(
         item { TopTile(title, onBackClick) }
 
         item {
+            // ✅ MODIFICARE: Legăm Search-ul de searchTextInput pentru tastare instantanee
             Search(
-                text = searchText,
-                onValueChange = { newText -> searchText = newText }
+                text = searchTextInput,
+                onValueChange = { newText -> searchTextInput = newText }
             )
         }
 
@@ -254,7 +246,7 @@ fun ResultList(
             }
 
         } else {
-            // ===== SUBCATEGORIES (Burger, Pizza, Sushi) =====
+            // ===== SUBCATEGORIES =====
             item {
                 SubCategory(
                     subCategory = subCategorySnapshot,
@@ -266,62 +258,44 @@ fun ResultList(
                 )
             }
 
-            // ===== POPULAR SECTION (LIMITAT LA 6) =====
+            // ===== POPULAR SECTION =====
             item {
                 if (popularSnapshot.isNotEmpty()) {
                     PopularSection(
-                        list = popularSnapshot, // Conține max 6 iteme
+                        list = popularSnapshot,
                         showPopularLoading = false,
                         onStoreClick = onStoreClick,
-                        onSeeAllClick = {
-                            Log.d("ResultList", "📤 See All clicked for POPULAR")
-                            onSeeAllClick("popular") // MainActivity va încărca lista completă
-                        },
+                        onSeeAllClick = { onSeeAllClick("popular") },
                         isStoreFavorite = isStoreFavorite,
                         onFavoriteToggle = onFavoriteToggle
                     )
                 } else if (selectedTag.isNotEmpty()) {
                     Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(32.dp),
+                        modifier = Modifier.fillMaxWidth().padding(32.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            "No popular stores found with tag \"$selectedTag\"",
-                            color = Color.Gray,
-                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                        )
+                        Text("No popular stores with tag \"$selectedTag\"", color = Color.Gray)
                     }
                 }
             }
 
-            // ===== NEAREST SECTION (LIMITAT LA 6) =====
+            // ===== NEAREST SECTION =====
             item {
                 if (nearestSnapshot.isNotEmpty()) {
                     NearestList(
-                        list = nearestSnapshot, // Conține max 6 iteme
+                        list = nearestSnapshot,
                         showNearestLoading = false,
                         onStoreClick = onStoreClick,
-                        onSeeAllClick = {
-                            Log.d("ResultList", "📤 See All clicked for NEAREST")
-                            onSeeAllClick("nearest") // MainActivity va încărca lista completă
-                        },
+                        onSeeAllClick = { onSeeAllClick("nearest") },
                         isStoreFavorite = isStoreFavorite,
                         onFavoriteToggle = onFavoriteToggle
                     )
                 } else if (selectedTag.isNotEmpty()) {
                     Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(32.dp),
+                        modifier = Modifier.fillMaxWidth().padding(32.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            "No nearby stores found with tag \"$selectedTag\"",
-                            color = Color.Gray,
-                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                        )
+                        Text("No nearby stores with tag \"$selectedTag\"", color = Color.Gray)
                     }
                 }
             }
@@ -329,7 +303,6 @@ fun ResultList(
     }
 }
 
-// ✅ Helper function
 fun <T> listToSnapshot(list: List<T>): SnapshotStateList<T> {
     val snapshot = androidx.compose.runtime.mutableStateListOf<T>()
     snapshot.addAll(list)

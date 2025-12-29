@@ -48,6 +48,17 @@ data class StoreModel(
     fun hasTag(tagName: String): Boolean {
         return Tags.any { it.equals(tagName, ignoreCase = true) }
     }
+    // În StoreModel.kt
+    fun getCleanPhoneNumber(): String {
+        return Call.trim()
+            .replace("-", "")
+            .replace(" ", "")
+    }
+
+    fun hasValidPhoneNumber(): Boolean {
+        val clean = getCleanPhoneNumber()
+        return clean.matches(Regex("^[0-9+]{7,}$"))
+    }
 
     fun hasAnyTag(tagNames: List<String>): Boolean {
         return Tags.any { tag ->

@@ -25,6 +25,14 @@ class UserManager(private val context: Context) {
     fun savePoints(points: Int) {
         sharedPreferences.edit { putInt("user_points", points) }
     }
+    // Adaugă în UserManager.kt
+    fun saveLastTimerTimestamp(timestamp: Long) {
+        sharedPreferences.edit { putLong("last_timer_timestamp", timestamp) }
+    }
+
+    fun getLastTimerTimestamp(): Long {
+        return sharedPreferences.getLong("last_timer_timestamp", 0L)
+    }
 
     fun getPoints(): Int {
         return sharedPreferences.getInt("user_points", 0)
