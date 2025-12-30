@@ -90,7 +90,7 @@ fun DashboardScreen(
                     }
                 }
                 "Suport" -> SupportScreen()
-                "Preferințe" -> {
+                "Favorite" -> {
                     WishlistScreen(
                         favoriteStores = viewModel.favoriteStores,
                         isDataLoaded = viewModel.isDataLoaded.value,

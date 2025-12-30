@@ -36,7 +36,7 @@ fun prepareBottomMenu(): List<BottomMenuItem> {
         BottomMenuItem(label = "Suport", icon = painterResource(R.drawable.btn_2))
     )
     bottomMenuItemList.add(
-        BottomMenuItem(label = "Preferințe", icon = painterResource(R.drawable.btn_3))
+        BottomMenuItem(label = "Favorite", icon = painterResource(R.drawable.btn_3))
     )
     bottomMenuItemList.add(
         BottomMenuItem(label = "Profil", icon = painterResource(R.drawable.btn_4))

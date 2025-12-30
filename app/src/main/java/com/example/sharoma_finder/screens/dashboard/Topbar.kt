@@ -224,14 +224,21 @@ fun TopBar(
             )
 
             // Linie orizontală (separă punctele de reward)
+            // Linie orizontală (separă punctele de reward)
             Box(Modifier
                 .height(1.dp)
-                .width(150.dp)
+                // ✅ MODIFICARE 1: Eliminăm width(150.dp) fix pentru a lăsa constrângerile să lucreze
                 .background(colorResource(R.color.grey))
                 .constrainAs(line2) {
                     top.linkTo(parent.top)
                     bottom.linkTo(parent.bottom)
-                    start.linkTo(parent.start)
+
+                    // ✅ MODIFICARE 2: O legăm de ambele margini ale zonei din stânga
+                    start.linkTo(parent.start, margin = 16.dp) // Adăugăm spațiu față de marginea stângă
+                    end.linkTo(line1.start, margin = 16.dp)    // Adăugăm spațiu față de linia verticală
+
+                    // ✅ MODIFICARE 3: Îi spunem să ocupe spațiul dintre cele două puncte de ancorare
+                    width = Dimension.fillToConstraints
                 }
             )
 
@@ -252,7 +259,7 @@ fun TopBar(
 
             // --- WISHLIST COUNT ---
             Text(
-                text = "$wishlistCount ${if (wishlistCount == 1) "Item" else "Items"}",
+                text = "$wishlistCount ${if (wishlistCount == 1) "Local" else "Locale"}",
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.White,
