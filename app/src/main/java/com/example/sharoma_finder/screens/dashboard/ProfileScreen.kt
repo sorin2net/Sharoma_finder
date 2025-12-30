@@ -184,8 +184,6 @@ fun ProfileScreen(viewModel: DashboardViewModel) {
                     fontWeight = FontWeight.Bold,
                     color = Color.White
                 )
-
-
                 IconButton(onClick = {
                     tempName = viewModel.userName.value
                     showEditDialog = true
@@ -197,6 +195,8 @@ fun ProfileScreen(viewModel: DashboardViewModel) {
                     )
                 }
             }
+
+// ✅ RANGUL (Acum este SUB rând, deci pe o linie nouă)
             Text(
                 text = viewModel.getUserRank(),
                 fontSize = 18.sp,
@@ -206,6 +206,27 @@ fun ProfileScreen(viewModel: DashboardViewModel) {
             )
 
             Spacer(modifier = Modifier.height(32.dp))
+            Card(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                colors = CardDefaults.cardColors(containerColor = colorResource(R.color.black3)),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("Progres Rang", color = Color.White, fontSize = 14.sp)
+                        Text("${viewModel.userPoints.value} XP", color = colorResource(R.color.gold), fontWeight = FontWeight.Bold)
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    LinearProgressIndicator(
+                        progress = viewModel.getRankProgress(), // ✅ Sultan (692 XP) va avea bara 100% plină
+                        modifier = Modifier.fillMaxWidth().height(10.dp).clip(RoundedCornerShape(5.dp)),
+                        color = colorResource(R.color.gold),
+                        trackColor = Color.DarkGray
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
 
             // ✅ ========== INTERNET TOGGLE SWITCH ==========
             Card(
@@ -297,6 +318,7 @@ fun ProfileScreen(viewModel: DashboardViewModel) {
 
             // ✅ ========== LOCATION PERMISSION SECTION ==========
             Spacer(modifier = Modifier.height(16.dp))
+
 
             if (!viewModel.isLocationPermissionGranted.value) {
                 // CAZUL 1: Permisiune lipsă - Buton Roșu Activ
