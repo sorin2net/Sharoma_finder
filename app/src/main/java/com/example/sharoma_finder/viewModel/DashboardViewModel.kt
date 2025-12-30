@@ -92,27 +92,23 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     var userPoints = mutableStateOf(0)
 
     init {
-        Log.d("DashboardViewModel", "=== INIT START ===")
         loadUserData()
         loadFavorites()
 
-        // ✅ Verificăm consimțământul la pornire
-        checkInternetConsent()
+        // ✅ OPTIMIZARE: Mutăm procesele grele după ce UI-ul s-a încărcat
+        viewModelScope.launch {
+            delay(1000) // Așteptăm o secundă să se deseneze ecranul
+            checkInternetConsent()
 
-        // ✅ Verificăm permisiunea de locație la pornire
-        checkLocationPermission()
+            checkLocalCache()
+            observeLocalDatabase()
 
-        checkLocalCache()
-        observeLocalDatabase()
-
-        // ✅ Sincronizarea se face doar dacă avem consimțământ ȘI internet fizic
-        if (internetConsentManager.canUseInternet()) {
-            refreshDataFromNetwork()
-        } else {
-            Log.w("DashboardViewModel", "⚠️ No internet access/consent - skipping network sync")
+            if (internetConsentManager.canUseInternet()) {
+                refreshDataFromNetwork()
+            }
+            userPoints.value = userManager.getPoints()
+            startUsageTimer()
         }
-        userPoints.value = userManager.getPoints()
-        startUsageTimer() // Pornim cronometrul de timp în aplicație
     }
 
     fun addPoints(amount: Int) {
@@ -560,4 +556,34 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun loadCategory(): LiveData<List<CategoryModel>> = dashboardRepository.allCategories
     fun loadBanner(): LiveData<List<BannerModel>> = dashboardRepository.allBanners
+
+
+    // ✅ LOGICA CENTRALIZATĂ (Sursă unică de adevăr)
+    fun getUserRank(): String {
+        val points = userPoints.value
+        return when {
+            points < 25 -> "La Dietă"
+            points in 25..49 -> "Ciugulitor"
+            points in 50..99 -> "Pofticios"
+            points in 100..199 -> "Mâncăcios"
+            points in 200..299 -> "Gurmand"
+            points in 300..499 -> "Devorator"
+            else -> "Sultan"
+        }
+    }
+
+    // ✅ Calculează cât de plină să fie bara de progres din Profil
+    fun getRankProgress(): Float {
+        val points = userPoints.value
+        val (start, end) = when {
+            points < 25 -> 0 to 25
+            points in 25..49 -> 25 to 50
+            points in 50..99 -> 50 to 100
+            points in 100..199 -> 100 to 200
+            points in 200..299 -> 200 to 300
+            points in 300..499 -> 300 to 500
+            else -> return 1.0f // Maxim pentru Sultan
+        }
+        return ((points - start).toFloat() / (end - start)).coerceIn(0f, 1f)
+    }
 }

@@ -81,7 +81,8 @@ fun DashboardScreen(
                                 userName = viewModel.userName.value,
                                 userImagePath = viewModel.userImagePath.value,
                                 wishlistCount = viewModel.favoriteStores.size,
-                                points = viewModel.userPoints.value
+                                points = viewModel.userPoints.value,
+                                viewModel = viewModel // ✅ Adaugă asta pentru a trimite "creierul" către TopBar
                             )
                         }
                         item { CategorySection(categories, showCategoryLoading, onCategoryClick) }

@@ -185,6 +185,7 @@ fun ProfileScreen(viewModel: DashboardViewModel) {
                     color = Color.White
                 )
 
+
                 IconButton(onClick = {
                     tempName = viewModel.userName.value
                     showEditDialog = true
@@ -196,6 +197,13 @@ fun ProfileScreen(viewModel: DashboardViewModel) {
                     )
                 }
             }
+            Text(
+                text = viewModel.getUserRank(),
+                fontSize = 18.sp,
+                color = colorResource(R.color.gold),
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(top = 4.dp)
+            )
 
             Spacer(modifier = Modifier.height(32.dp))
 

@@ -30,6 +30,7 @@ import androidx.constraintlayout.compose.ConstraintLayout
 import androidx.constraintlayout.compose.Dimension
 import coil.compose.AsyncImage
 import com.example.sharoma_finder.R
+import com.example.sharoma_finder.viewModel.DashboardViewModel
 import java.io.File
 import java.util.Calendar
 
@@ -38,18 +39,11 @@ fun TopBar(
     userName: String,
     userImagePath: String?,
     wishlistCount: Int,
-    points: Int // ✅ Parametru nou adăugat
+    points: Int ,// ✅ Parametru nou adăugat
+    viewModel: DashboardViewModel
 ) {
     // 1. LOGICA PENTRU TITLUL DE REWARD (bazat pe wishlist)
-    val userRankTitle = when {
-        points < 25 -> "La Dietă"
-        points in 25..49 -> "Ciugulitor"
-        points in 50..99 -> "Pofticios"
-        points in 100..199 -> "Mâncăcios"
-        points in 200..299 -> "Gurmand"
-        points in 300..499 -> "Devorator"
-        else -> "Sultan" // 500+ XP
-    }
+    val userRankTitle = viewModel.getUserRank()
 
     // 2. LOGICA PENTRU SALUT (bazat pe oră)
     val greetingText = remember {
