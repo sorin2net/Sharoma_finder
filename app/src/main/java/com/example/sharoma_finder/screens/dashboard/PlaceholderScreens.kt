@@ -63,7 +63,7 @@ fun WishlistScreen(
                 ) {
                     item {
                         Text(
-                            text = "My Wishlist (${favoriteStores.size})",
+                            text = "Locuri preferate (${favoriteStores.size})",
                             fontSize = 24.sp,
                             fontWeight = FontWeight.Bold,
                             color = colorResource(R.color.gold),

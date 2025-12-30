@@ -124,20 +124,15 @@ class DashboardRepository(
     /**
      * ✅ HELPER: Parsează SubCategory manual
      */
+    /**
+     * ✅ HELPER: Parsează SubCategory manual
+     */
     private fun parseSubCategoryFromSnapshot(snapshot: DataSnapshot): SubCategoryModel? {
         return try {
             val map = snapshot.value as? Map<*, *> ?: return null
 
-            // Helper pentru a asigura formatul List<String>
-            fun convertToList(data: Any?): List<String> {
-                return when (data) {
-                    is List<*> -> data.map { it.toString() }
-                    is Long, is Int, is String -> listOf(data.toString())
-                    else -> emptyList()
-                }
-            }
-
             // Citim noua listă "CategoryIds" sau vechiul "CategoryId" pentru compatibilitate
+            // ✅ Acum apelăm funcția de mai jos
             val categoryIds = convertToList(map["CategoryIds"] ?: map["CategoryId"])
 
             SubCategoryModel(
@@ -149,6 +144,15 @@ class DashboardRepository(
         } catch (e: Exception) {
             Log.e("DashboardRepo", "Failed to parse SubCategory: ${e.message}")
             null
+        }
+    }
+
+    // ✅ MUTATĂ AICI (în afara funcției de parsare, dar în interiorul clasei)
+    private fun convertToList(data: Any?): List<String> {
+        return when (data) {
+            is List<*> -> data.mapNotNull { it?.toString() } // ✅ Scoate elementele null
+            is Long, is Int, is String -> listOf(data.toString())
+            else -> emptyList() // ✅ Acoperă și cazul 'null' global
         }
     }
 
