@@ -131,41 +131,28 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
 
     // Cronometru: 1 punct la fiecare 60 secunde
     fun startUsageTimer() {
-        // Verificăm dacă există un timer deja activ
-        if (usageTimerJob?.isActive == true) {
-            Log.d("DashboardVM", "⚠️ Timer already running")
-            return
-        }
-
-        // Recuperăm ultima salvare
+        if (usageTimerJob?.isActive == true) return
         lastTimerSaveTimestamp = userManager.getLastTimerTimestamp()
 
         usageTimerJob = viewModelScope.launch(Dispatchers.IO) {
             var elapsedSeconds = 0L
-
-            // ✅ Recuperăm timpul pierdut dacă aplicația a fost închisă brusc
             val now = System.currentTimeMillis()
             if (lastTimerSaveTimestamp > 0L) {
                 val missedSeconds = (now - lastTimerSaveTimestamp) / 1000
-                if (missedSeconds in 1..300) { // Max 5 minute recuperare
+                if (missedSeconds in 1..300) {
                     elapsedSeconds = missedSeconds
                     Log.d("DashboardVM", "🔄 Recovered $missedSeconds seconds")
                 }
             }
-
             while (isActive) {
-                delay(1000) // 1 secundă
+                delay(1000)
                 elapsedSeconds++
-
-                // La fiecare 60 secunde dăm puncte
                 if (elapsedSeconds % 60 == 0L) {
                     withContext(Dispatchers.Main) {
                         addPoints(1)
                         Log.d("DashboardVM", "🪙 +1 XP (Total: ${userPoints.value})")
                     }
                 }
-
-                // ✅ Salvăm progress-ul la fiecare 30 secunde
                 if (elapsedSeconds % 30 == 0L) {
                     userManager.saveLastTimerTimestamp(System.currentTimeMillis())
                 }
@@ -302,11 +289,15 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             if (stores != null) {
                 Log.d("DashboardVM", "🔄 Room LiveData update: ${stores.size} stores")
 
-                allStoresRaw.clear()
-                allStoresRaw.addAll(stores)
+                synchronized(allStoresRaw) {
+                    allStoresRaw.clear()
+                    allStoresRaw.addAll(stores)
+                }
 
                 if (currentUserLocation != null) {
-                    recalculateDistances()
+                    viewModelScope.launch(Dispatchers.Default) {
+                        recalculateDistances()
+                    }
                 } else {
                     processData()
                 }
@@ -316,7 +307,6 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                 }
             }
         }
-
         storeRepository.allStores.observeForever(localStoreObserver)
     }
 
@@ -426,26 +416,34 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun updateUserLocation(location: Location) {
         currentUserLocation = location
-        recalculateDistances()
+        // ✅ Mutăm calculul pe un thread de fundal (Default) ca să nu se blocheze ecranul
+        viewModelScope.launch(Dispatchers.Default) {
+            recalculateDistances()
+        }
     }
 
-    private fun recalculateDistances() {
+    private suspend fun recalculateDistances() {
         val location = currentUserLocation ?: return
-        if (allStoresRaw.isEmpty()) return
 
-        Log.d("DashboardVM", "📏 Calculating distances for ${allStoresRaw.size} stores")
+        val storesCopy = synchronized(allStoresRaw) { allStoresRaw.toList() }
+        if (storesCopy.isEmpty()) return
 
-        allStoresRaw.forEach { store ->
+        storesCopy.forEach { store ->
             val storeLoc = Location("store")
             storeLoc.latitude = store.Latitude
             storeLoc.longitude = store.Longitude
             store.distanceToUser = location.distanceTo(storeLoc)
         }
-        processData()
+
+        withContext(Dispatchers.Main) {
+            processData()
+        }
     }
 
     private fun processData() {
-        val sortedList = allStoresRaw.sortedBy {
+        val currentList = synchronized(allStoresRaw) { allStoresRaw.toList() }
+
+        val sortedList = currentList.sortedBy {
             if (it.distanceToUser < 0) Float.MAX_VALUE else it.distanceToUser
         }
 
@@ -460,7 +458,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         popularStores.addAll(popular)
 
         updateFavoriteStores()
-        Log.d("DashboardVM", "✅ Processed: ${allStoresRaw.size} stores, ${popular.size} popular")
+        Log.d("DashboardVM", "✅ Processed: ${currentList.size} stores, ${popular.size} popular")
     }
 
     override fun onCleared() {
