@@ -47,7 +47,7 @@
                 <category android:name="android.intent.category.BROWSABLE" />
 
                 <data
-                    android:scheme="foodfinder"
+                    android:scheme="shaormafinder"
                     android:host="store" />
             </intent-filter>
 

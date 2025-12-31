@@ -447,7 +447,7 @@ fun AppInfoSection() {
                         context.startActivity(intent)
                     }
                 ) {
-                    Text("Politica de confidențialitate", color = colorResource(R.color.gold), fontSize = 12.sp)
+                    Text("Confidențialitate", color = colorResource(R.color.gold), fontSize = 12.sp)
                 }
                 TextButton(
                     onClick = {
