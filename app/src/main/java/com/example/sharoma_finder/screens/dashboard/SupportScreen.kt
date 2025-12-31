@@ -121,11 +121,11 @@ fun SupportScreen() {
                 }
             ),
             ContactOption(
-                title = "Website",
-                subtitle = "www.foodfinder.com",
+                title = "Susține-mă",
+                subtitle = "Doar dacă vrei să îmi susții munca altfel",
                 icon = Icons.Default.Language,
                 action = {
-                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://foodfinder.com"))
+                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://revolut.me/teoremareziduri"))
                     context.startActivity(intent)
                 }
             )
