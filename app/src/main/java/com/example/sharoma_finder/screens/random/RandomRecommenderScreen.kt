@@ -90,7 +90,7 @@ fun RandomRecommenderScreen(
                 }
 
                 Text(
-                    text = "Roata pofticiosului",
+                    text = "Roata indecisului",
                     fontSize = 28.sp,
                     fontWeight = FontWeight.Bold,
                     color = colorResource(R.color.gold),

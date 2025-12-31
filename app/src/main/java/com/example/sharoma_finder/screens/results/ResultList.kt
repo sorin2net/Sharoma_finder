@@ -180,7 +180,7 @@ fun ResultList(
         if (searchText.isNotEmpty()) {
             item {
                 Text(
-                    text = "Search Results (${searchResults.size})",
+                    text = "Rezultatele căutării (${searchResults.size})",
                     color = colorResource(R.color.gold),
                     fontSize = 20.sp,
                     fontWeight = FontWeight.SemiBold,
@@ -197,7 +197,7 @@ fun ResultList(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            "No stores found matching \"$searchText\"",
+                            "Nu am găsit restaurante care să conțină \"$searchText\"",
                             color = Color.Gray
                         )
                     }
@@ -246,6 +246,7 @@ fun ResultList(
                     PopularSection(
                         list = popularSnapshot,
                         showPopularLoading = false,
+                        categoryName = title,
                         onStoreClick = onStoreClick,
                         onSeeAllClick = { onSeeAllClick("popular") },
                         isStoreFavorite = isStoreFavorite,
@@ -256,7 +257,7 @@ fun ResultList(
                         modifier = Modifier.fillMaxWidth().padding(32.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("No popular stores with tag \"$selectedTag\"", color = Color.Gray)
+                        Text("Nu există restaurante populare cu eticheta \"$selectedTag\"", color = Color.Gray)
                     }
                 }
             }
@@ -266,6 +267,7 @@ fun ResultList(
                     NearestList(
                         list = nearestSnapshot,
                         showNearestLoading = false,
+                        categoryName = title,
                         onStoreClick = onStoreClick,
                         onSeeAllClick = { onSeeAllClick("nearest") },
                         isStoreFavorite = isStoreFavorite,
@@ -276,7 +278,7 @@ fun ResultList(
                         modifier = Modifier.fillMaxWidth().padding(32.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("No nearby stores with tag \"$selectedTag\"", color = Color.Gray)
+                        Text("Nu există restaurante în apropiere cu eticheta \"$selectedTag\"", color = Color.Gray)
                     }
                 }
             }

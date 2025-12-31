@@ -62,7 +62,7 @@ fun MapScreen(
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = "Location not available for this store\n\nPlease contact the store directly",
+                text = "Locația nu este disponibilă pentru acest restaurant\n\nTe rugăm să contactezi localul direct",
                 fontSize = 18.sp,
                 color = Color.White,
                 textAlign = TextAlign.Center,
@@ -152,7 +152,6 @@ fun MapScreen(
         try {
             fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, null)
         } catch (e: SecurityException) {
-            Log.e("MapScreen", " Security exception: ${e.message}")
         }
 
         onDispose {
@@ -160,7 +159,6 @@ fun MapScreen(
                 fusedLocationClient.removeLocationUpdates(locationCallback)
                 userLocation = null
             } catch (e: Exception) {
-                Log.e("MapScreen", " Cleanup error: ${e.message}")
             }
         }
     }
@@ -182,8 +180,8 @@ fun MapScreen(
             if (hasLocationPermission && userLocation != null) {
                 Marker(
                     state = userMarkerState,
-                    title = "Your Location",
-                    snippet = "You are here",
+                    title = "Locația ta",
+                    snippet = "Ești aici",
                     icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_BLUE)
                 )
             }
@@ -202,7 +200,7 @@ fun MapScreen(
                 },
             contentAlignment = Alignment.Center
         ) {
-            Image(painter = painterResource(R.drawable.back), contentDescription = "Back", modifier = Modifier.size(24.dp))
+            Image(painter = painterResource(R.drawable.back), contentDescription = "Înapoi", modifier = Modifier.size(24.dp))
         }
 
         if (hasLocationPermission && userLocation != null) {
@@ -229,7 +227,7 @@ fun MapScreen(
             ) {
                 Icon(
                     imageVector = Icons.Default.MyLocation,
-                    contentDescription = "Center on me",
+                    contentDescription = "Centrează pe mine",
                     tint = colorResource(R.color.gold),
                     modifier = Modifier.size(24.dp)
                 )
@@ -268,7 +266,7 @@ fun MapScreen(
                     }
                 ) {
                     Text(
-                        text = if (store.hasValidPhoneNumber()) "Call to Store" else "Phone Unavailable",
+                        text = if (store.hasValidPhoneNumber()) "Sună" else "Număr indisponibil",
                         fontSize = 16.sp,
                         color = if (store.hasValidPhoneNumber()) Color.Black else Color.LightGray,
                         fontWeight = FontWeight.Bold

@@ -56,7 +56,7 @@ fun ItemsPopular(
         Box(modifier = Modifier.size(135.dp, 90.dp)) {
             AsyncImage(
                 model = item.ImagePath,
-                contentDescription = "Photo of ${item.Title}",
+                contentDescription = "Fotografie cu ${item.Title}",
                 modifier = Modifier
                     .fillMaxSize()
                     .clip(RoundedCornerShape(10.dp))
@@ -80,7 +80,7 @@ fun ItemsPopular(
             ) {
                 Icon(
                     imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-                    contentDescription = if (isFavorite) "Remove from favorites" else "Add to favorites",
+                    contentDescription = if (isFavorite) "Elimină de la favorite" else "Adaugă la favorite",
                     tint = colorResource(R.color.gold),
                     modifier = Modifier.padding(4.dp)
                 )
@@ -119,9 +119,9 @@ fun ItemsPopular(
 
         if (item.distanceToUser > 0) {
             val distanceText = if (item.distanceToUser < 1000) {
-                "${item.distanceToUser.toInt()} m"
+                "${item.distanceToUser.toInt()} m distanță"
             } else {
-                String.format("%.1f km", item.distanceToUser / 1000)
+                String.format("%.1f km distanță", item.distanceToUser / 1000)
             }
 
             Text(
@@ -139,6 +139,7 @@ fun ItemsPopular(
 fun PopularSection(
     list: SnapshotStateList<StoreModel>,
     showPopularLoading: Boolean,
+    categoryName: String,
     onStoreClick: (StoreModel) -> Unit,
     onSeeAllClick: () -> Unit,
     isStoreFavorite: (StoreModel) -> Boolean,
@@ -151,14 +152,14 @@ fun PopularSection(
                 .padding(top = 16.dp)
         ) {
             Text(
-                text = "Popular Stores",
+                text = "$categoryName populare",
                 color = colorResource(R.color.gold),
                 fontSize = 20.sp,
                 fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.weight(1f)
             )
             Text(
-                text = "See all",
+                text = "Vezi toate",
                 color = Color.White,
                 fontSize = 16.sp,
                 style = TextStyle(textDecoration = TextDecoration.Underline),
@@ -194,31 +195,3 @@ fun PopularSection(
     }
 }
 
-@Preview
-@Composable
-fun ItemsPopularView() {
-    val item = StoreModel(
-        Id = 0,
-        Title = "Store Title",
-        Address = "123 Main St",
-        ShortAddress = "Main St",
-        ImagePath = ""
-    )
-    ItemsPopular(item = item, isFavorite = true, onFavoriteClick = {}, onClick = {})
-}
-
-@Preview
-@Composable
-fun PopularSectionPreview() {
-    val list = SnapshotStateList<StoreModel>()
-    list.add(StoreModel(Title = "Store 1", ShortAddress = "Address 1"))
-    list.add(StoreModel(Title = "Store 2", ShortAddress = "Address 2"))
-    PopularSection(
-        list = list,
-        showPopularLoading = false,
-        onStoreClick = {},
-        onSeeAllClick = {},
-        isStoreFavorite = { false },
-        onFavoriteToggle = {}
-    )
-}

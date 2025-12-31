@@ -310,7 +310,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
 
         if (!internetConsentManager.isInternetAvailable()) {
             viewModelScope.launch(Dispatchers.Main) {
-                Toast.makeText(getApplication(), "No internet connection! Cache kept safe. 🛡️", Toast.LENGTH_LONG).show()
+                Toast.makeText(getApplication(), "Fără conexiune la internet! Datele salvate sunt în siguranță.", Toast.LENGTH_LONG).show()
                 onFinished()
             }
             return

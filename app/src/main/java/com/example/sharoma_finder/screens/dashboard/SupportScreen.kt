@@ -82,13 +82,13 @@ fun SupportScreen() {
     val contactOptions = remember {
         listOf(
             ContactOption(
-                title = "Email Contact",
+                title = "Contact Email",
                 subtitle = "dumitriudenisgabriel@gmail.com",
                 icon = Icons.Default.Email,
                 action = {
                     val intent = Intent(Intent.ACTION_SENDTO).apply {
                         data = Uri.parse("mailto:dumitriudenisgabriel@gmail.com")
-                        putExtra(Intent.EXTRA_SUBJECT, "Shaorma Finder Support Request")
+                        putExtra(Intent.EXTRA_SUBJECT, "Solicitare Suport Shaorma Finder")
                     }
                     context.startActivity(Intent.createChooser(intent, "Trimite Email"))
                 }

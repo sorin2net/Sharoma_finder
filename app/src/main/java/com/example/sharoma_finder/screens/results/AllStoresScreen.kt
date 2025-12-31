@@ -52,7 +52,7 @@ fun AllStoresScreen(
     ) {
         Column {
             TopTile(
-                title = if (mode == "popular") "Popular" else "Nearest",
+                title = if (mode == "popular") "Populare" else "Cele mai apropiate",
                 onBackClick = onBackClick
             )
 
@@ -65,7 +65,7 @@ fun AllStoresScreen(
                         CircularProgressIndicator(color = colorResource(R.color.gold))
                         Spacer(Modifier.height(16.dp))
                         Text(
-                            text = "Loading stores...",
+                            text = "Se încarcă restaurantele...",
                             color = Color.Gray,
                             fontSize = 14.sp
                         )
@@ -77,7 +77,7 @@ fun AllStoresScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "No ${if (mode == "popular") "popular" else "nearby"} stores found",
+                        text = "Nu am găsit restaurante ${if (mode == "popular") "populare" else "din apropiere"}",
                         color = Color.Gray,
                         fontSize = 16.sp,
                         textAlign = TextAlign.Center,

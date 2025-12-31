@@ -66,9 +66,9 @@ fun StoreDetail(item: StoreModel) {
         if (item.distanceToUser > 0) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 val distanceText = if (item.distanceToUser < 1000) {
-                    "${item.distanceToUser.toInt()} m away"
+                    "${item.distanceToUser.toInt()} m distanță"
                 } else {
-                    String.format("%.1f km away", item.distanceToUser / 1000)
+                    String.format("%.1f km distanță", item.distanceToUser / 1000)
                 }
 
                 Text(
@@ -88,7 +88,7 @@ fun StoreDetail(item: StoreModel) {
             maxLines = 1
         )
         Text(
-            text = "Hours: ${item.Hours}",
+            text = "Deschis: ${item.Hours}",
             color = Color.White,
             fontSize = 14.sp,
             fontWeight = FontWeight.SemiBold,
@@ -101,7 +101,7 @@ fun StoreDetail(item: StoreModel) {
 fun StoreImage(item: StoreModel) {
     AsyncImage(
         model = item.ImagePath,
-        contentDescription = "Image of ${item.Title}",
+        contentDescription = "Fotografie cu ${item.Title}",
         modifier = Modifier
             .size(95.dp)
             .clip(RoundedCornerShape(10.dp))
@@ -142,7 +142,7 @@ fun ItemsNearest(
         IconButton(onClick = onFavoriteClick) {
             Icon(
                 imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-                contentDescription = if (isFavorite) "Remove ${item.Title} from favorites" else "Add ${item.Title} to favorites",
+                contentDescription = if (isFavorite) "Elimină ${item.Title} de la favorite" else "Adaugă ${item.Title} la favorite",
                 tint = colorResource(R.color.gold),
                 modifier = Modifier.size(24.dp)
             )
@@ -154,6 +154,7 @@ fun ItemsNearest(
 fun NearestList(
     list: SnapshotStateList<StoreModel>,
     showNearestLoading: Boolean,
+    categoryName: String,
     onStoreClick: (StoreModel) -> Unit,
     onSeeAllClick: () -> Unit,
     isStoreFavorite: (StoreModel) -> Boolean,
@@ -166,14 +167,14 @@ fun NearestList(
                 .padding(top = 16.dp)
         ) {
             Text(
-                text = "Nearest Stores",
+                text = "$categoryName în apropiere",
                 color = colorResource(R.color.gold),
                 fontSize = 20.sp,
                 fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.weight(1f)
             )
             Text(
-                text = "See all",
+                text = "Vezi toate",
                 color = Color.White,
                 fontSize = 16.sp,
                 style = TextStyle(textDecoration = TextDecoration.Underline),
@@ -209,62 +210,4 @@ fun NearestList(
             }
         }
     }
-}
-
-
-@Preview
-@Composable
-fun NearestListPreview() {
-    val list = remember {
-        androidx.compose.runtime.mutableStateListOf(
-            StoreModel(
-                Title = "Store 1",
-                Address = "123 Main St",
-                ShortAddress = "Main St",
-                Activity = "Retail",
-                Hours = "9am"
-            ),
-            StoreModel(
-                Title = "Store 2",
-                Address = "456 Oak St",
-                ShortAddress = "Oak St",
-                Activity = "Cafe",
-                Hours = "7am"
-            )
-        )
-    }
-    NearestList(
-        list = list,
-        showNearestLoading = false,
-        onStoreClick = {},
-        onSeeAllClick = {},
-        isStoreFavorite = { false },
-        onFavoriteToggle = {}
-    )
-}
-
-@Preview
-@Composable
-fun ItemsNearestPreview() {
-    val item = StoreModel(
-        Title = "Store Title",
-        Address = "123 Main St",
-        ShortAddress = "Main St",
-        Activity = "test",
-        Hours = "9am"
-    )
-    ItemsNearest(item = item, isFavorite = false, onFavoriteClick = {}, onClick = {})
-}
-
-@Preview
-@Composable
-fun StoreDetailPreview() {
-    val item = StoreModel(
-        Title = "Store Title",
-        Address = "123 Main St",
-        ShortAddress = "Main St",
-        Activity = "test",
-        Hours = "9am"
-    )
-    StoreDetail(item)
 }
