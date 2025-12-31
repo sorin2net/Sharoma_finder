@@ -303,36 +303,35 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun forceRefreshAllData(onFinished: () -> Unit) {
-        if (!internetConsentManager.hasInternetConsent()) {
-            onFinished()
-            return
-        }
-
         if (!internetConsentManager.isInternetAvailable()) {
             viewModelScope.launch(Dispatchers.Main) {
-                Toast.makeText(getApplication(), "Fără conexiune la internet! Datele salvate sunt în siguranță.", Toast.LENGTH_LONG).show()
+                Toast.makeText(getApplication(), "Fără conexiune la internet!", Toast.LENGTH_LONG).show()
                 onFinished()
             }
             return
         }
 
         if (isRefreshing.value) return
-
         isRefreshing.value = true
 
         viewModelScope.launch {
             try {
+
+
                 withContext(Dispatchers.IO) {
-                    launch { storeRepository.clearCache() }
-                    launch { database.categoryDao().deleteAll() }
-                    launch { database.bannerDao().deleteAll() }
-                    launch { database.subCategoryDao().deleteAll() }
+                    storeRepository.refreshStores(forceRefresh = true)
+                    dashboardRepository.refreshCategories()
+                    dashboardRepository.refreshBanners()
+                    dashboardRepository.refreshSubCategories()
                 }
 
-                delay(500)
-                refreshDataFromNetwork()
-                delay(1000)
+                withContext(Dispatchers.Main) {
+
+                }
             } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(getApplication(), "Eroare la actualizare: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
+                }
             } finally {
                 withContext(Dispatchers.Main) {
                     isRefreshing.value = false

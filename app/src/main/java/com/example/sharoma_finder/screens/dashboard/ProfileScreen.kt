@@ -161,7 +161,7 @@ fun ProfileScreen(viewModel: DashboardViewModel) {
                 )
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -193,7 +193,7 @@ fun ProfileScreen(viewModel: DashboardViewModel) {
                 modifier = Modifier.padding(top = 4.dp)
             )
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(24.dp))
             Card(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                 colors = CardDefaults.cardColors(containerColor = colorResource(R.color.black3)),
@@ -214,7 +214,7 @@ fun ProfileScreen(viewModel: DashboardViewModel) {
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
             Card(
                 modifier = Modifier
@@ -250,7 +250,7 @@ fun ProfileScreen(viewModel: DashboardViewModel) {
                         modifier = Modifier.size(32.dp)
                     )
 
-                    Spacer(modifier = Modifier.width(16.dp))
+                    Spacer(modifier = Modifier.width(12.dp))
 
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
@@ -301,7 +301,7 @@ fun ProfileScreen(viewModel: DashboardViewModel) {
                 modifier = Modifier.padding(horizontal = 32.dp, vertical = 4.dp)
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
 
             if (!viewModel.isLocationPermissionGranted.value) {
@@ -386,7 +386,7 @@ fun ProfileScreen(viewModel: DashboardViewModel) {
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
             val canRefresh = !viewModel.isRefreshing.value && viewModel.hasInternetAccess.value && isSystemOnline
 
