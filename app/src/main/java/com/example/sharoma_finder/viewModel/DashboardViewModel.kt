@@ -507,12 +507,12 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     fun getUserRank(): String {
         val points = userPoints.value
         return when {
-            points < 25 -> "La Dietă"
-            points in 25..49 -> "Ciugulitor"
-            points in 50..99 -> "Pofticios"
-            points in 100..199 -> "Mâncăcios"
-            points in 200..299 -> "Gurmand"
-            points in 300..499 -> "Devorator"
+            points < 100 -> "La Dietă"
+            points in 100..199 -> "Ciugulitor"
+            points in 200..349 -> "Pofticios"
+            points in 350..499 -> "Mâncăcios"
+            points in 500..749 -> "Gurmand"
+            points in 750..999 -> "Devorator"
             else -> "Sultan"
         }
     }
@@ -520,14 +520,15 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     fun getRankProgress(): Float {
         val points = userPoints.value
         val (start, end) = when {
-            points < 25 -> 0 to 25
-            points in 25..49 -> 25 to 50
-            points in 50..99 -> 50 to 100
+            points < 100 -> 0 to 100
             points in 100..199 -> 100 to 200
-            points in 200..299 -> 200 to 300
-            points in 300..499 -> 300 to 500
+            points in 200..349 -> 200 to 350
+            points in 350..499 -> 350 to 500
+            points in 500..749 -> 500 to 750
+            points in 750..999 -> 750 to 1000
             else -> return 1.0f
         }
+
         return ((points - start).toFloat() / (end - start)).coerceIn(0f, 1f)
     }
 }
