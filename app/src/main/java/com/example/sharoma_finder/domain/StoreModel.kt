@@ -3,11 +3,20 @@ package com.example.sharoma_finder.domain
 import androidx.annotation.Keep
 import androidx.room.Entity
 import androidx.room.Ignore
+import androidx.room.Index
 import androidx.room.PrimaryKey
 import java.io.Serializable
 
+
 @Keep
-@Entity(tableName = "stores")
+@Entity(
+    tableName = "stores",
+    indices = [
+        Index(value = ["IsPopular"]),
+        Index(value = ["CategoryIds"]),
+        Index(value = ["Tags"])
+    ]
+)
 data class StoreModel(
     @PrimaryKey
     var firebaseKey: String = "",
@@ -43,8 +52,18 @@ data class StoreModel(
                 Address.isNotBlank()
     }
 
+
+    @Ignore
+    private var _cachedHasTag: MutableMap<String, Boolean>? = null
+
     fun hasTag(tagName: String): Boolean {
-        return Tags.any { it.equals(tagName, ignoreCase = true) }
+        if (_cachedHasTag == null) {
+            _cachedHasTag = mutableMapOf()
+        }
+
+        return _cachedHasTag!!.getOrPut(tagName) {
+            Tags.any { it.equals(tagName, ignoreCase = true) }
+        }
     }
 
     fun getCleanPhoneNumber(): String {
@@ -62,5 +81,10 @@ data class StoreModel(
         return Tags.any { tag ->
             tagNames.any { it.equals(tag, ignoreCase = true) }
         }
+    }
+
+
+    fun clearTagCache() {
+        _cachedHasTag = null
     }
 }

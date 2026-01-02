@@ -1,12 +1,11 @@
-import java.util.Properties // Import necesar pentru citirea fișierului
+import java.util.Properties
 
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.google.gms.google.services)
-
-    // Aici doar activăm plugin-ul (versiunea e luată din fișierul de mai sus)
+    id("kotlin-parcelize")
     id("com.google.firebase.crashlytics")
     id("kotlin-kapt")
 }
@@ -24,24 +23,20 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        // --- COD ACTUALIZAT PENTRU SECURITATE API KEY ---
-        // 1. Citim fișierul local.properties
         val keystoreFile = project.rootProject.file("local.properties")
         val properties = Properties()
         if (keystoreFile.exists()) {
             properties.load(keystoreFile.inputStream())
         }
 
-        // 2. Extragem cheia cu validare strictă (Soluția nouă)
         val apiKey = properties.getProperty("MAPS_API_KEY")
-
         if (apiKey.isNullOrBlank()) {
-            // ✅ Această linie va opri procesul de Build dacă cheia lipsește sau e goală
-            throw org.gradle.api.GradleException("EROARE: MAPS_API_KEY nu a fost găsit în local.properties! Harta nu va funcționa fără această cheie.")
+            throw org.gradle.api.GradleException("EROARE: MAPS_API_KEY nu a fost găsit în local.properties!")
         }
 
         manifestPlaceholders["MAPS_API_KEY"] = apiKey
-        // ------------------------------------------------
+
+        buildConfigField("long", "BUILD_TIMESTAMP", "${System.currentTimeMillis()}L")
     }
 
     bundle {
@@ -52,32 +47,64 @@ android {
 
     buildTypes {
         release {
-            // --- AICI SUNT MODIFICĂRILE PENTRU APP SIZE ---
-            // Activează R8 pentru a micșora și obfusca codul
             isMinifyEnabled = true
-            // Activează ștergerea resurselor (imagini, layout-uri) nefolosite
             isShrinkResources = true
 
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+
+            ndk {
+                debugSymbolLevel = "FULL"
+            }
+        }
+
+        debug {
+            isMinifyEnabled = false
+            isShrinkResources = false
         }
     }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
-    kotlinOptions {
-        jvmTarget = "11"
+
+    kotlin {
+        compilerOptions {
+            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
+            freeCompilerArgs.addAll(
+                "-Xjvm-default=all",
+                "-opt-in=kotlin.RequiresOptIn",
+                "-opt-in=kotlinx.coroutines.ExperimentalCoroutinesApi"
+            )
+        }
     }
+
     buildFeatures {
         compose = true
+        buildConfig = true
+    }
+
+    packaging {
+        resources {
+            excludes += setOf(
+                "META-INF/DEPENDENCIES",
+                "META-INF/LICENSE",
+                "META-INF/LICENSE.txt",
+                "META-INF/license.txt",
+                "META-INF/NOTICE",
+                "META-INF/NOTICE.txt",
+                "META-INF/notice.txt",
+                "META-INF/ASL2.0",
+                "META-INF/*.kotlin_module"
+            )
+        }
     }
 }
 
 dependencies {
-
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
@@ -87,16 +114,10 @@ dependencies {
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
 
-    // --- FIREBASE SETUP ---
     implementation(libs.firebase.database)
-
-    // Firebase BoM (gestionează versiunile librăriilor de mai jos)
     implementation(platform("com.google.firebase:firebase-bom:33.7.0"))
-
-    // Librăriile Crashlytics și Analytics (fără versiune, o iau din BoM)
     implementation("com.google.firebase:firebase-crashlytics")
     implementation("com.google.firebase:firebase-analytics")
-    // ---------------------
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
@@ -106,7 +127,6 @@ dependencies {
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
 
-    // Alte librării
     implementation("io.coil-kt:coil-compose:2.7.0")
     implementation("com.google.accompanist:accompanist-pager-indicators:0.36.0")
     implementation("androidx.constraintlayout:constraintlayout-compose:1.1.1")
@@ -117,10 +137,15 @@ dependencies {
     implementation("androidx.compose.material:material-icons-extended:1.5.4")
     implementation("com.google.android.gms:play-services-location:21.0.1")
 
-    // Room Database
     val room_version = "2.7.0-alpha13"
     implementation("androidx.room:room-runtime:$room_version")
     implementation("androidx.room:room-ktx:$room_version")
-    add("kapt", "androidx.room:room-compiler:$room_version")
+    kapt("androidx.room:room-compiler:$room_version")
     implementation("com.google.code.gson:gson:2.10.1")
+}
+
+tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile>().configureEach {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
+    }
 }

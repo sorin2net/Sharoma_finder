@@ -22,6 +22,31 @@ interface StoreDao {
     @Query("SELECT * FROM stores WHERE CategoryIds LIKE '%' || :catId || '%'")
     fun getStoresByCategorySync(catId: String): List<StoreModel>
 
+
+    @Query("""
+        SELECT * FROM stores 
+        WHERE CategoryIds LIKE '%' || :catId || '%' 
+        AND IsPopular = 1
+    """)
+    fun getPopularStoresByCategorySync(catId: String): List<StoreModel>
+
+
+    @Query("""
+        SELECT * FROM stores 
+        WHERE CategoryIds LIKE '%' || :catId || '%' 
+        AND Tags LIKE '%' || :tagName || '%'
+    """)
+    fun getStoresByTagSync(catId: String, tagName: String): List<StoreModel>
+
+
+    @Query("""
+        SELECT * FROM stores 
+        WHERE CategoryIds LIKE '%' || :catId || '%' 
+        AND IsPopular = 1 
+        AND Tags LIKE '%' || :tagName || '%'
+    """)
+    fun getPopularStoresByTagSync(catId: String, tagName: String): List<StoreModel>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(stores: List<StoreModel>)
 

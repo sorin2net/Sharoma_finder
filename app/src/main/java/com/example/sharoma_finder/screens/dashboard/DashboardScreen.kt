@@ -20,6 +20,7 @@ import com.example.sharoma_finder.R
 import com.example.sharoma_finder.domain.BannerModel
 import com.example.sharoma_finder.domain.CategoryModel
 import com.example.sharoma_finder.domain.StoreModel
+import com.example.sharoma_finder.utils.LockScreenOrientation
 import com.example.sharoma_finder.viewModel.DashboardViewModel
 
 @Composable
@@ -29,7 +30,7 @@ fun DashboardScreen(
     onBannerClick: () -> Unit,
     viewModel: DashboardViewModel
 ) {
-
+    LockScreenOrientation()
 
     val categoryList by viewModel.loadCategory().observeAsState(initial = emptyList())
     val bannerList by viewModel.loadBanner().observeAsState(initial = emptyList())

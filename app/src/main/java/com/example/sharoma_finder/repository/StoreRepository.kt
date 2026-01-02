@@ -113,6 +113,13 @@ class StoreRepository(
             val subCategoryIds = convertToList(map["SubCategoryIds"] ?: map["SubCategoryId"])
             val tags = convertToList(map["Tags"])
 
+            val latitude = (map["Latitude"] as? Double) ?: 0.0
+            val longitude = (map["Longitude"] as? Double) ?: 0.0
+
+            if (latitude == 0.0 || longitude == 0.0) {
+                return null
+            }
+
             StoreModel(
                 Id = (map["Id"] as? Long)?.toInt() ?: 0,
                 CategoryIds = categoryIds,

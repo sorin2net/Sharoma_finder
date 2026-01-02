@@ -1,18 +1,21 @@
 package com.example.sharoma_finder.screens.results
 
 import android.location.Location
-import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.filled.SearchOff
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.runtime.livedata.observeAsState
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -23,8 +26,9 @@ import com.example.sharoma_finder.domain.StoreModel
 import com.example.sharoma_finder.repository.Resource
 import com.example.sharoma_finder.repository.ResultsRepository
 import com.example.sharoma_finder.screens.common.ErrorScreen
-import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 
 @Composable
 fun ResultList(
@@ -42,24 +46,20 @@ fun ResultList(
     val database = AppDatabase.getDatabase(context)
     val repository = ResultsRepository(database.subCategoryDao())
 
-    var searchTextInput by rememberSaveable { mutableStateOf("") }
-    var searchText by rememberSaveable { mutableStateOf("") }
-
+    var searchTextInput by remember { mutableStateOf("") }
+    var searchText by remember { mutableStateOf("") }
     var selectedTag by remember { mutableStateOf("") }
     var hasError by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf("") }
 
+    var isProcessingData by remember { mutableStateOf(true) }
+    val popularStores = remember { mutableStateListOf<StoreModel>() }
+    val nearestStores = remember { mutableStateListOf<StoreModel>() }
+    val searchResults = remember { mutableStateListOf<StoreModel>() }
+
     LaunchedEffect(searchTextInput) {
-        if (searchTextInput.isEmpty()) {
-            searchText = ""
-        } else {
-            delay(300)
-            searchText = searchTextInput
-        }
-    }
-
-    LaunchedEffect(allGlobalStores.size, id) {
-
+        delay(300)
+        searchText = searchTextInput
     }
 
     val subCategoryState by remember(id) {
@@ -69,97 +69,63 @@ fun ResultList(
     val subCategoryList = when (subCategoryState) {
         is Resource.Success -> subCategoryState.data ?: emptyList()
         is Resource.Error -> {
-            LaunchedEffect(Unit) {
-                hasError = true
-                errorMessage = subCategoryState.message ?: "Failed to load categories"
-            }
+            errorMessage = subCategoryState.message ?: "Eroare la categorii"
+            hasError = true
             emptyList()
         }
         else -> emptyList()
     }
-
-    val showSubCategoryLoading = subCategoryState is Resource.Loading
     val subCategorySnapshot = remember(subCategoryList) { listToSnapshot(subCategoryList) }
 
-    val categoryPopularList = remember(allGlobalStores.size, id, selectedTag) {
-        try {
-            allGlobalStores.asSequence()
-                .filter { store ->
-                    store.CategoryIds.contains(id) &&
-                            store.IsPopular &&
-                            store.isValid() &&
-                            (selectedTag.isEmpty() || store.hasTag(selectedTag))
-                }
-                .toList()
-        } catch (e: Exception) {
-            hasError = true
-            errorMessage = "Error filtering popular stores: ${e.message}"
-            emptyList()
-        }
-    }
+    LaunchedEffect(id, selectedTag, userLocation, searchText, allGlobalStores.size) {
+        isProcessingData = true
 
-    val categoryNearestList = remember(allGlobalStores.size, id, userLocation, selectedTag) {
-        try {
-            val filteredSequence = allGlobalStores.asSequence()
-                .filter { store ->
-                    store.CategoryIds.contains(id) &&
-                            store.isValid() &&
-                            (selectedTag.isEmpty() || store.hasTag(selectedTag))
-                }
-
-            if (userLocation != null) {
-                filteredSequence.sortedBy {
-                    if (it.distanceToUser < 0) Float.MAX_VALUE else it.distanceToUser
-                }.toList()
-            } else {
-                filteredSequence.toList()
-            }
-        } catch (e: Exception) {
-            hasError = true
-            errorMessage = "Error filtering nearest stores: ${e.message}"
-            emptyList()
-        }
-    }
-
-    val popularSnapshot = remember(categoryPopularList) {
-        listToSnapshot(categoryPopularList.take(6))
-    }
-
-    val nearestSnapshot = remember(categoryNearestList) {
-        listToSnapshot(categoryNearestList.take(6))
-    }
-
-    val searchResults = remember(searchText, allGlobalStores.size, id) {
-        if (searchText.isEmpty()) {
-            emptyList()
-        } else {
+        withContext(Dispatchers.Default) {
             try {
-                allGlobalStores.asSequence()
-                    .filter { store ->
-                        val belongsToCategory = store.CategoryIds.contains(id)
-                        val matchesTitle = store.Title.contains(searchText, ignoreCase = true)
-                        belongsToCategory && store.isValid() && matchesTitle
-                    }
-                    .sortedBy {
-                        if (it.distanceToUser < 0) Float.MAX_VALUE else it.distanceToUser
-                    }
-                    .toList()
+                val filteredByCategory = allGlobalStores.filter {
+                    it.CategoryIds.contains(id) && it.isValid() &&
+                            (selectedTag.isEmpty() || it.hasTag(selectedTag))
+                }
+
+                val popular = filteredByCategory
+                    .filter { it.IsPopular }
+                    .sortedBy { if (it.distanceToUser < 0) Float.MAX_VALUE else it.distanceToUser }
+                    .take(6)
+
+                val nearest = filteredByCategory
+                    .sortedBy { if (it.distanceToUser < 0) Float.MAX_VALUE else it.distanceToUser }
+                    .take(6)
+
+                val searchRes = if (searchText.isNotEmpty()) {
+                    filteredByCategory.filter {
+                        it.Title.contains(searchText, ignoreCase = true)
+                    }.sortedBy { if (it.distanceToUser < 0) Float.MAX_VALUE else it.distanceToUser }
+                } else emptyList()
+
+                withContext(Dispatchers.Main) {
+                    popularStores.clear()
+                    popularStores.addAll(popular)
+
+                    nearestStores.clear()
+                    nearestStores.addAll(nearest)
+
+                    searchResults.clear()
+                    searchResults.addAll(searchRes)
+
+                    isProcessingData = false
+                }
             } catch (e: Exception) {
-                hasError = true
-                errorMessage = "Search error: ${e.message}"
-                emptyList()
+                withContext(Dispatchers.Main) {
+                    hasError = true
+                    errorMessage = "Eroare la procesarea datelor"
+                    isProcessingData = false
+                }
             }
         }
     }
 
     if (hasError) {
-        ErrorScreen(
-            message = errorMessage,
-            onRetry = {
-                hasError = false
-                errorMessage = ""
-            }
-        )
+        ErrorScreen(message = errorMessage, onRetry = { hasError = false })
         return
     }
 
@@ -173,7 +139,7 @@ fun ResultList(
         item {
             Search(
                 text = searchTextInput,
-                onValueChange = { newText -> searchTextInput = newText }
+                onValueChange = { searchTextInput = it }
             )
         }
 
@@ -188,97 +154,83 @@ fun ResultList(
                 )
             }
 
-            if (searchResults.isEmpty()) {
+            if (isProcessingData) {
+                item { LoadingIndicator() }
+            } else if (searchResults.isEmpty()) {
+
                 item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(32.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            "Nu am găsit restaurante care să conțină \"$searchText\"",
-                            color = Color.Gray
-                        )
-                    }
+                    EmptyStateMessage("Nu am găsit niciun local care să conțină \"$searchText\".")
                 }
             } else {
-                item {
-                    val rows = searchResults.chunked(2)
-                    Column(Modifier.padding(16.dp)) {
-                        rows.forEach { rowItems ->
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(16.dp)
-                            ) {
-                                rowItems.forEach { store ->
-                                    Box(modifier = Modifier.weight(1f)) {
-                                        ItemsPopular(
-                                            item = store,
-                                            isFavorite = isStoreFavorite(store),
-                                            onFavoriteClick = { onFavoriteToggle(store) },
-                                            onClick = { onStoreClick(store) }
-                                        )
-                                    }
-                                }
-                                if (rowItems.size < 2) Spacer(modifier = Modifier.weight(1f))
+                items(
+                    items = searchResults.chunked(2),
+                    key = { row -> row.joinToString("-") { it.getUniqueId() } }
+                ) { rowItems ->
+                    Row(
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        rowItems.forEach { store ->
+                            Box(modifier = Modifier.weight(1f)) {
+                                ItemsPopular(
+                                    item = store,
+                                    isFavorite = isStoreFavorite(store),
+                                    onFavoriteClick = { onFavoriteToggle(store) },
+                                    onClick = { onStoreClick(store) }
+                                )
                             }
-                            Spacer(modifier = Modifier.height(16.dp))
                         }
+                        if (rowItems.size < 2) Spacer(modifier = Modifier.weight(1f))
                     }
                 }
             }
-
-        } else {
+        }
+        else {
             item {
                 SubCategory(
                     subCategory = subCategorySnapshot,
-                    showSubCategoryLoading = showSubCategoryLoading,
+                    showSubCategoryLoading = subCategoryState is Resource.Loading,
                     selectedCategoryName = selectedTag,
-                    onCategoryClick = { clickedTag ->
-                        selectedTag = if (selectedTag == clickedTag) "" else clickedTag
-                    }
+                    onCategoryClick = { selectedTag = if (selectedTag == it) "" else it }
                 )
             }
 
-            item {
-                if (popularSnapshot.isNotEmpty()) {
-                    PopularSection(
-                        list = popularSnapshot,
-                        showPopularLoading = false,
-                        categoryName = title,
-                        onStoreClick = onStoreClick,
-                        onSeeAllClick = { onSeeAllClick("popular") },
-                        isStoreFavorite = isStoreFavorite,
-                        onFavoriteToggle = onFavoriteToggle
-                    )
-                } else if (selectedTag.isNotEmpty()) {
-                    Box(
-                        modifier = Modifier.fillMaxWidth().padding(32.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text("Nu există restaurante populare cu eticheta \"$selectedTag\"", color = Color.Gray)
+            if (isProcessingData) {
+                item { LoadingIndicator() }
+            } else {
+                if (popularStores.isEmpty() && nearestStores.isEmpty()) {
+                    item {
+                        EmptyStateMessage(
+                            "Momentan nu am găsit locații în categoria $title${if(selectedTag.isNotEmpty()) " pentru $selectedTag" else ""}."
+                        )
                     }
-                }
-            }
+                } else {
+                    if (popularStores.isNotEmpty()) {
+                        item {
+                            PopularSection(
+                                list = popularStores,
+                                showPopularLoading = false,
+                                categoryName = title,
+                                onStoreClick = onStoreClick,
+                                onSeeAllClick = { onSeeAllClick("popular") },
+                                isStoreFavorite = isStoreFavorite,
+                                onFavoriteToggle = onFavoriteToggle
+                            )
+                        }
+                    }
 
-            item {
-                if (nearestSnapshot.isNotEmpty()) {
-                    NearestList(
-                        list = nearestSnapshot,
-                        showNearestLoading = false,
-                        categoryName = title,
-                        onStoreClick = onStoreClick,
-                        onSeeAllClick = { onSeeAllClick("nearest") },
-                        isStoreFavorite = isStoreFavorite,
-                        onFavoriteToggle = onFavoriteToggle
-                    )
-                } else if (selectedTag.isNotEmpty()) {
-                    Box(
-                        modifier = Modifier.fillMaxWidth().padding(32.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text("Nu există restaurante în apropiere cu eticheta \"$selectedTag\"", color = Color.Gray)
+                    if (nearestStores.isNotEmpty()) {
+                        item {
+                            NearestList(
+                                list = nearestStores,
+                                showNearestLoading = false,
+                                categoryName = title,
+                                onStoreClick = onStoreClick,
+                                onSeeAllClick = { onSeeAllClick("nearest") },
+                                isStoreFavorite = isStoreFavorite,
+                                onFavoriteToggle = onFavoriteToggle
+                            )
+                        }
                     }
                 }
             }
@@ -286,8 +238,44 @@ fun ResultList(
     }
 }
 
+@Composable
+fun LoadingIndicator() {
+    Box(Modifier.fillMaxWidth().height(150.dp), contentAlignment = Alignment.Center) {
+        CircularProgressIndicator(color = colorResource(R.color.gold))
+    }
+}
+
+@Composable
+fun EmptyStateMessage(message: String) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 80.dp, start = 32.dp, end = 32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Icon(
+            imageVector = androidx.compose.material.icons.Icons.Default.SearchOff,
+            contentDescription = null,
+            tint = Color.Gray,
+            modifier = Modifier.size(64.dp)
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Text(
+            text = message,
+            color = Color.Gray,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Medium,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            lineHeight = 22.sp
+        )
+    }
+}
+
 fun <T> listToSnapshot(list: List<T>): SnapshotStateList<T> {
-    val snapshot = androidx.compose.runtime.mutableStateListOf<T>()
+    val snapshot = mutableStateListOf<T>()
     snapshot.addAll(list)
     return snapshot
 }

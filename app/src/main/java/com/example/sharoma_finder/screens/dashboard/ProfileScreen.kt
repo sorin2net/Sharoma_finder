@@ -45,11 +45,13 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.sharoma_finder.R
 import com.example.sharoma_finder.screens.common.InternetConsentDialog
+import com.example.sharoma_finder.utils.LockScreenOrientation
 import com.example.sharoma_finder.viewModel.DashboardViewModel
 import java.io.File
 
 @Composable
 fun ProfileScreen(viewModel: DashboardViewModel) {
+    LockScreenOrientation()
     val context = LocalContext.current
 
     var showEditDialog by remember { mutableStateOf(false) }

@@ -29,6 +29,7 @@ import coil.imageLoader
 import coil.request.ImageRequest
 import com.example.sharoma_finder.R
 import com.example.sharoma_finder.domain.StoreModel
+import com.example.sharoma_finder.utils.LockScreenOrientation
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.example.sharoma_finder.viewModel.DashboardViewModel
@@ -40,6 +41,7 @@ fun RandomRecommenderScreen(
     viewModel: DashboardViewModel,
     onStoreClick: (StoreModel) -> Unit
 ) {
+    LockScreenOrientation()
     var isSpinning by remember { mutableStateOf(false) }
     var currentDisplayStore by remember { mutableStateOf<StoreModel?>(null) }
     var finalStore by remember { mutableStateOf<StoreModel?>(null) }

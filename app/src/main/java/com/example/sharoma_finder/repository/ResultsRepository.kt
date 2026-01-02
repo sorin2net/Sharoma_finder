@@ -1,34 +1,37 @@
 package com.example.sharoma_finder.repository
 
-import android.util.Log
 import androidx.lifecycle.LiveData
-import androidx.lifecycle.MutableLiveData
+import androidx.lifecycle.liveData
+import androidx.lifecycle.map
 import com.example.sharoma_finder.data.SubCategoryDao
 import com.example.sharoma_finder.domain.SubCategoryModel
-
+import kotlinx.coroutines.Dispatchers
 
 class ResultsRepository(private val subCategoryDao: SubCategoryDao) {
 
 
     fun loadSubCategory(id: String): LiveData<Resource<MutableList<SubCategoryModel>>> {
-        val listData = MutableLiveData<Resource<MutableList<SubCategoryModel>>>()
-        listData.value = Resource.Loading()
+        return liveData(Dispatchers.IO) {
+            emit(Resource.Loading())
 
-        try {
-            val liveData = subCategoryDao.getSubCategoriesByCategory(id)
-
-            liveData.observeForever { subCategories ->
-                if (subCategories != null) {
-                    val mutableList = subCategories.toMutableList()
-                    listData.value = Resource.Success(mutableList)
-                } else {
-                    listData.value = Resource.Success(mutableListOf())
+            try {
+                val cachedData = subCategoryDao.getSubCategoriesByCategorySync(id)
+                if (cachedData.isNotEmpty()) {
+                    emit(Resource.Success(cachedData.toMutableList()))
                 }
-            }
-        } catch (e: Exception) {
-            listData.value = Resource.Success(mutableListOf())
-        }
 
-        return listData
+                emitSource(
+                    subCategoryDao.getSubCategoriesByCategory(id).map { subCategories ->
+                        if (subCategories.isNotEmpty()) {
+                            Resource.Success(subCategories.toMutableList())
+                        } else {
+                            Resource.Success(mutableListOf())
+                        }
+                    }
+                )
+            } catch (e: Exception) {
+                emit(Resource.Error("Failed to load subcategories: ${e.message}"))
+            }
+        }
     }
 }

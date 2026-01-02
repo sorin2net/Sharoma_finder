@@ -3,21 +3,18 @@ package com.example.sharoma_finder
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Bundle
-import android.util.Log
+import android.os.Parcelable
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.listSaver
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.colorResource
 import androidx.core.app.ActivityCompat
@@ -35,6 +32,7 @@ import com.example.sharoma_finder.screens.results.AllStoresScreen
 import com.example.sharoma_finder.screens.results.ResultList
 import com.example.sharoma_finder.viewModel.DashboardViewModel
 import com.google.accompanist.systemuicontroller.rememberSystemUiController
+import kotlinx.parcelize.Parcelize
 
 class MainActivity : ComponentActivity() {
 
@@ -102,14 +100,39 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-sealed class Screen {
-    data object Dashboard : Screen()
+@Parcelize
+sealed class Screen : Parcelable {
+    @Parcelize
+    object Dashboard : Screen()
+
+    @Parcelize
     data class Results(val id: String, val title: String) : Screen()
-    data class Map(val store: StoreModel) : Screen()
+
+    @Parcelize
+    data class Map(
+        val storeFirebaseKey: String,
+        val storeTitle: String,
+        val latitude: Double,
+        val longitude: Double
+    ) : Screen()
+
+    @Parcelize
     data class ViewAll(val id: String, val mode: String) : Screen()
-    data object RandomRecommender : Screen()
+
+    @Parcelize
+    object RandomRecommender : Screen()
 }
 
+val BackStackSaver = listSaver<SnapshotStateList<Screen>, Screen>(
+    save = { stateList ->
+        stateList.toList()
+    },
+    restore = { savedList ->
+        SnapshotStateList<Screen>().apply {
+            addAll(savedList)
+        }
+    }
+)
 
 @Composable
 fun MainApp(
@@ -127,10 +150,17 @@ fun MainApp(
 
     systemUiController.setStatusBarColor(color = colorResource(R.color.white))
 
-    val backStack = remember { mutableStateListOf<Screen>(Screen.Dashboard) }
-    val currentScreen = backStack.last()
+    val backStack = rememberSaveable(
+        saver = BackStackSaver
+    ) {
+        SnapshotStateList<Screen>().apply {
+            add(Screen.Dashboard)
+        }
+    }
 
-    var showInternetConsentDialog by remember { mutableStateOf(false) }
+    val currentScreen = backStack.lastOrNull() ?: Screen.Dashboard
+
+    var showInternetConsentDialog by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         if (!internetConsentManager.hasAskedForConsent() && !internetConsentManager.hasInternetConsent()) {
@@ -173,7 +203,14 @@ fun MainApp(
                 },
                 onStoreClick = { store ->
                     dashboardViewModel.onStoreOpenedOnMap()
-                    backStack.add(Screen.Map(store))
+                    backStack.add(
+                        Screen.Map(
+                            storeFirebaseKey = store.firebaseKey,
+                            storeTitle = store.Title,
+                            latitude = store.Latitude,
+                            longitude = store.Longitude
+                        )
+                    )
                 },
                 onBannerClick = {
                     backStack.add(Screen.RandomRecommender)
@@ -189,7 +226,14 @@ fun MainApp(
                 onBackClick = { popBackStack() },
                 onStoreClick = { store ->
                     dashboardViewModel.onStoreOpenedOnMap()
-                    backStack.add(Screen.Map(store))
+                    backStack.add(
+                        Screen.Map(
+                            storeFirebaseKey = store.firebaseKey,
+                            storeTitle = store.Title,
+                            latitude = store.Latitude,
+                            longitude = store.Longitude
+                        )
+                    )
                 }
             )
         }
@@ -201,7 +245,14 @@ fun MainApp(
                 onBackClick = { popBackStack() },
                 onStoreClick = { store ->
                     dashboardViewModel.onStoreOpenedOnMap()
-                    backStack.add(Screen.Map(store))
+                    backStack.add(
+                        Screen.Map(
+                            storeFirebaseKey = store.firebaseKey,
+                            storeTitle = store.Title,
+                            latitude = store.Latitude,
+                            longitude = store.Longitude
+                        )
+                    )
                 },
                 onSeeAllClick = { mode ->
                     backStack.add(Screen.ViewAll(screen.id, mode))
@@ -212,6 +263,7 @@ fun MainApp(
                 userLocation = dashboardViewModel.currentUserLocation
             )
         }
+
         is Screen.ViewAll -> {
             val listToSend = when (screen.mode) {
                 "popular" -> {
@@ -233,7 +285,14 @@ fun MainApp(
                 onBackClick = { popBackStack() },
                 onStoreClick = { store ->
                     dashboardViewModel.onStoreOpenedOnMap()
-                    backStack.add(Screen.Map(store))
+                    backStack.add(
+                        Screen.Map(
+                            storeFirebaseKey = store.firebaseKey,
+                            storeTitle = store.Title,
+                            latitude = store.Latitude,
+                            longitude = store.Longitude
+                        )
+                    )
                 },
                 isStoreFavorite = { store -> dashboardViewModel.isFavorite(store) },
                 onFavoriteToggle = { store -> dashboardViewModel.toggleFavorite(store) },
@@ -243,12 +302,30 @@ fun MainApp(
         }
 
         is Screen.Map -> {
-            MapScreen(
-                store = screen.store,
-                isFavorite = dashboardViewModel.isFavorite(screen.store),
-                onFavoriteClick = { dashboardViewModel.toggleFavorite(screen.store) },
-                onBackClick = { popBackStack() }
-            )
+            val store = dashboardViewModel.getGlobalStoreList()
+                .firstOrNull { it.firebaseKey == screen.storeFirebaseKey }
+
+            if (store != null) {
+                MapScreen(
+                    store = store,
+                    isFavorite = dashboardViewModel.isFavorite(store),
+                    onFavoriteClick = { dashboardViewModel.toggleFavorite(store) },
+                    onBackClick = { popBackStack() }
+                )
+            } else {
+                val tempStore = StoreModel(
+                    firebaseKey = screen.storeFirebaseKey,
+                    Title = screen.storeTitle,
+                    Latitude = screen.latitude,
+                    Longitude = screen.longitude
+                )
+                MapScreen(
+                    store = tempStore,
+                    isFavorite = false,
+                    onFavoriteClick = {},
+                    onBackClick = { popBackStack() }
+                )
+            }
         }
     }
 }

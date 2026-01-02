@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -21,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
@@ -31,6 +33,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import coil.request.CachePolicy
+import coil.request.ImageRequest
 import com.example.sharoma_finder.R
 import com.example.sharoma_finder.domain.StoreModel
 
@@ -55,7 +59,12 @@ fun ItemsPopular(
 
         Box(modifier = Modifier.size(135.dp, 90.dp)) {
             AsyncImage(
-                model = item.ImagePath,
+                model = ImageRequest.Builder(LocalContext.current)
+                    .data(item.ImagePath)
+                    .crossfade(true)
+                    .diskCachePolicy(CachePolicy.ENABLED)
+                    .memoryCachePolicy(CachePolicy.ENABLED)
+                    .build(),
                 contentDescription = "Fotografie cu ${item.Title}",
                 modifier = Modifier
                     .fillMaxSize()
@@ -181,8 +190,10 @@ fun PopularSection(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp)
             ) {
-                items(list.size) { index ->
-                    val item = list[index]
+                items(
+                    items = list,
+                    key = { it.getUniqueId() }
+                ) { item ->
                     ItemsPopular(
                         item = item,
                         isFavorite = isStoreFavorite(item),

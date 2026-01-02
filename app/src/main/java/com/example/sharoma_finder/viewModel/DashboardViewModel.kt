@@ -15,7 +15,10 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.Observer
+import androidx.lifecycle.application
 import androidx.lifecycle.viewModelScope
+import coil.Coil
+import coil.request.ImageRequest
 import com.example.sharoma_finder.data.AppDatabase
 import com.example.sharoma_finder.domain.BannerModel
 import com.example.sharoma_finder.domain.CategoryModel
@@ -88,26 +91,28 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     var userPoints = mutableStateOf(0)
 
     init {
-        loadUserData()
-        loadFavorites()
-
         viewModelScope.launch {
-            delay(500)
+            loadUserData()
+            loadFavorites()
             checkInternetConsent()
-            userPoints.value = userManager.getPoints()
-
-            delay(300)
             checkLocalCache()
             observeLocalDatabase()
 
-            delay(300)
+            delay(1000)
             startUsageTimer()
 
-            delay(1000)
             if (internetConsentManager.canUseInternet()) {
-                refreshDataFromNetwork()
+                refreshEssentialData()
             }
         }
+    }
+
+    private suspend fun refreshEssentialData() = withContext(Dispatchers.IO) {
+        dashboardRepository.refreshCategories()
+        delay(500)
+        dashboardRepository.refreshBanners()
+        delay(500)
+        storeRepository.refreshStores()
     }
 
     fun addPoints(amount: Int) {
@@ -120,28 +125,16 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         userManager.savePoints(userPoints.value)
     }
 
+
     fun startUsageTimer() {
         if (usageTimerJob?.isActive == true) return
-        lastTimerSaveTimestamp = userManager.getLastTimerTimestamp()
 
         usageTimerJob = viewModelScope.launch(Dispatchers.IO) {
-            var elapsedSeconds = 0L
-            val now = System.currentTimeMillis()
-            if (lastTimerSaveTimestamp > 0L) {
-                val missedSeconds = (now - lastTimerSaveTimestamp) / 1000
-                if (missedSeconds in 1..300) {
-                    elapsedSeconds = missedSeconds
-                }
-            }
             while (isActive) {
-                delay(1000)
-                elapsedSeconds++
-                if (elapsedSeconds % 60 == 0L) {
-                    withContext(Dispatchers.Main) {
-                        addPoints(1)
-                    }
-                }
-                if (elapsedSeconds % 30 == 0L) {
+                delay(60000)
+
+                withContext(Dispatchers.Main) {
+                    addPoints(1)
                     userManager.saveLastTimerTimestamp(System.currentTimeMillis())
                 }
             }
@@ -320,6 +313,13 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
 
                 withContext(Dispatchers.IO) {
                     storeRepository.refreshStores(forceRefresh = true)
+                    val imageLoader = Coil.imageLoader(application)
+                    allStoresRaw.forEach { store ->
+                        val request = ImageRequest.Builder(application)
+                            .data(store.ImagePath)
+                            .build()
+                        imageLoader.enqueue(request)
+                    }
                     dashboardRepository.refreshCategories()
                     dashboardRepository.refreshBanners()
                     dashboardRepository.refreshSubCategories()
@@ -364,49 +364,62 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
+    private var lastCalculationLocation: Location? = null
+
     fun updateUserLocation(location: Location) {
+
+        val distanceMoved = lastCalculationLocation?.distanceTo(location) ?: Float.MAX_VALUE
+
+        if (distanceMoved < 20f) return
+
         currentUserLocation = location
+        lastCalculationLocation = location
+
         viewModelScope.launch(Dispatchers.Default) {
             recalculateDistances()
         }
     }
 
     private suspend fun recalculateDistances() {
-        val location = currentUserLocation ?: return
+        withContext(Dispatchers.Default) {
+            val storesCopy = synchronized(allStoresRaw) { allStoresRaw.toList() }
+            if (storesCopy.isEmpty()) return@withContext
 
-        val storesCopy = synchronized(allStoresRaw) { allStoresRaw.toList() }
-        if (storesCopy.isEmpty()) return
+            val userLoc = currentUserLocation ?: return@withContext
+            val results = FloatArray(1)
 
-        storesCopy.forEach { store ->
-            val storeLoc = Location("store")
-            storeLoc.latitude = store.Latitude
-            storeLoc.longitude = store.Longitude
-            store.distanceToUser = location.distanceTo(storeLoc)
-        }
+            storesCopy.forEach { store ->
 
-        withContext(Dispatchers.Main) {
-            processData()
+                android.location.Location.distanceBetween(
+                    userLoc.latitude, userLoc.longitude,
+                    store.Latitude, store.Longitude,
+                    results
+                )
+                store.distanceToUser = results[0]
+            }
+
+            val sortedAll = storesCopy.sortedBy { if (it.distanceToUser < 0) Float.MAX_VALUE else it.distanceToUser }
+
+            withContext(Dispatchers.Main) {
+                nearestStoresTop5.clear()
+                nearestStoresTop5.addAll(sortedAll.take(5))
+
+                nearestStoresAllSorted.clear()
+                nearestStoresAllSorted.addAll(sortedAll)
+
+                popularStores.clear()
+                popularStores.addAll(sortedAll.filter { it.IsPopular })
+
+                favoriteStores.clear()
+                favoriteStores.addAll(sortedAll.filter { isFavorite(it) })
+            }
         }
     }
 
     private fun processData() {
-        val currentList = synchronized(allStoresRaw) { allStoresRaw.toList() }
-
-        val sortedList = currentList.sortedBy {
-            if (it.distanceToUser < 0) Float.MAX_VALUE else it.distanceToUser
+        viewModelScope.launch {
+            recalculateDistances()
         }
-
-        nearestStoresTop5.clear()
-        nearestStoresTop5.addAll(sortedList.take(5))
-
-        nearestStoresAllSorted.clear()
-        nearestStoresAllSorted.addAll(sortedList)
-
-        val popular = sortedList.filter { it.IsPopular }
-        popularStores.clear()
-        popularStores.addAll(popular)
-
-        updateFavoriteStores()
     }
 
     override fun onCleared() {
@@ -432,6 +445,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     private fun loadUserData() {
         userName.value = userManager.getName()
         userImagePath.value = userManager.getImagePath()
+        userPoints.value = userManager.getPoints()
     }
 
     fun updateUserName(newName: String) {
@@ -497,7 +511,8 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             favoriteStoreIds.add(uniqueKey)
             addPoints(10)
         }
-        updateFavoriteStores()
+
+        processData()
     }
 
     fun loadCategory(): LiveData<List<CategoryModel>> = dashboardRepository.allCategories

@@ -4,7 +4,6 @@ import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
-import android.util.Log
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -34,6 +33,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import com.example.sharoma_finder.R
 import com.example.sharoma_finder.domain.StoreModel
 import com.example.sharoma_finder.screens.results.ItemsNearest
+import com.example.sharoma_finder.utils.LockScreenOrientation
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationRequest
@@ -54,6 +54,7 @@ fun MapScreen(
     onFavoriteClick: () -> Unit = {},
     onBackClick: () -> Unit
 ) {
+    LockScreenOrientation()
     if (store.Latitude == 0.0 || store.Longitude == 0.0) {
         Box(
             modifier = Modifier
@@ -87,7 +88,13 @@ fun MapScreen(
         position = CameraPosition.fromLatLngZoom(storeLatlng, 15f)
     }
 
-    val storeMarkerState = remember { MarkerState(position = storeLatlng) }
+    LaunchedEffect(store.firebaseKey) {
+        cameraPositionState.position = CameraPosition.fromLatLngZoom(storeLatlng, 15f)
+    }
+
+    val storeMarkerState = remember(store.firebaseKey) {
+        MarkerState(position = storeLatlng)
+    }
 
     fun checkPermissions(): Boolean {
         val fineLocation = ActivityCompat.checkSelfPermission(
@@ -127,11 +134,11 @@ fun MapScreen(
             LocationServices.getFusedLocationProviderClient(context)
 
         val locationRequest = LocationRequest.Builder(
-            Priority.PRIORITY_HIGH_ACCURACY,
-            5000L
+            Priority.PRIORITY_BALANCED_POWER_ACCURACY,
+            10000L
         ).apply {
-            setMinUpdateIntervalMillis(2000L)
-            setMaxUpdateDelayMillis(10000L)
+            setMinUpdateIntervalMillis(5000L)
+            setMaxUpdateDelayMillis(15000L)
         }.build()
 
         val locationCallback = object : LocationCallback() {
@@ -166,9 +173,27 @@ fun MapScreen(
     ConstraintLayout(modifier = Modifier.fillMaxSize()) {
         val (map, detail, backBtn, centerBtn) = createRefs()
 
+        val mapProperties = remember {
+            MapProperties(
+                isMyLocationEnabled = false,
+                mapType = MapType.NORMAL
+            )
+        }
+
+        val uiSettings = remember {
+            MapUiSettings(
+                zoomControlsEnabled = false,
+                myLocationButtonEnabled = false,
+                mapToolbarEnabled = false,
+                compassEnabled = true
+            )
+        }
+
         GoogleMap(
             modifier = Modifier.fillMaxSize().constrainAs(map) { centerTo(parent) },
-            cameraPositionState = cameraPositionState
+            cameraPositionState = cameraPositionState,
+            properties = mapProperties,
+            uiSettings = uiSettings
         ) {
             Marker(
                 state = storeMarkerState,
@@ -187,7 +212,6 @@ fun MapScreen(
             }
         }
 
-
         Box(
             modifier = Modifier
                 .padding(top = 48.dp, start = 16.dp)
@@ -200,7 +224,11 @@ fun MapScreen(
                 },
             contentAlignment = Alignment.Center
         ) {
-            Image(painter = painterResource(R.drawable.back), contentDescription = "Înapoi", modifier = Modifier.size(24.dp))
+            Image(
+                painter = painterResource(R.drawable.back),
+                contentDescription = "Înapoi",
+                modifier = Modifier.size(24.dp)
+            )
         }
 
         if (hasLocationPermission && userLocation != null) {
@@ -247,7 +275,11 @@ fun MapScreen(
                 }
         ) {
             item {
-                ItemsNearest(item = store, isFavorite = isFavorite, onFavoriteClick = onFavoriteClick)
+                ItemsNearest(
+                    item = store,
+                    isFavorite = isFavorite,
+                    onFavoriteClick = onFavoriteClick
+                )
             }
             item {
                 Button(

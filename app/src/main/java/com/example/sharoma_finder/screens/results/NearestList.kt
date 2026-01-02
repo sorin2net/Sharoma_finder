@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
@@ -15,12 +16,14 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import coil.request.CachePolicy
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
@@ -30,6 +33,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.example.sharoma_finder.R
 import com.example.sharoma_finder.domain.StoreModel
 
@@ -100,7 +104,12 @@ fun StoreDetail(item: StoreModel) {
 @Composable
 fun StoreImage(item: StoreModel) {
     AsyncImage(
-        model = item.ImagePath,
+        model = ImageRequest.Builder(LocalContext.current)
+            .data(item.ImagePath)
+            .crossfade(true)
+            .diskCachePolicy(CachePolicy.ENABLED)
+            .memoryCachePolicy(CachePolicy.ENABLED)
+            .build(),
         contentDescription = "Fotografie cu ${item.Title}",
         modifier = Modifier
             .size(95.dp)
@@ -198,8 +207,10 @@ fun NearestList(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp)
             ) {
-                items(list.size) { index ->
-                    val item = list[index]
+                items(
+                    items = list,
+                    key = { it.getUniqueId() }
+                ) { item ->
                     ItemsNearest(
                         item = item,
                         isFavorite = isStoreFavorite(item),

@@ -17,7 +17,7 @@ import com.example.sharoma_finder.domain.*
         SubCategoryModel::class,
         CacheMetadata::class
     ],
-    version = 6,
+    version = 7,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -70,6 +70,15 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+
+        private val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_stores_IsPopular ON stores(IsPopular)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_stores_CategoryIds ON stores(CategoryIds)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_stores_Tags ON stores(Tags)")
+            }
+        }
+
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -77,8 +86,15 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "sharoma_database"
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
-                    .fallbackToDestructiveMigration()
+                    .addMigrations(
+                        MIGRATION_1_2,
+                        MIGRATION_2_3,
+                        MIGRATION_3_4,
+                        MIGRATION_4_5,
+                        MIGRATION_5_6,
+                        MIGRATION_6_7
+                    )
+                    //.fallbackToDestructiveMigration()
                     .build()
                 INSTANCE = instance
                 instance
