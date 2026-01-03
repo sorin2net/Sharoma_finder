@@ -159,7 +159,7 @@ fun MapScreen(
 
         val mapProperties = remember {
             MapProperties(
-                isMyLocationEnabled = false,
+                isMyLocationEnabled = hasLocationPermission,
                 mapType = MapType.NORMAL
             )
         }
@@ -168,7 +168,7 @@ fun MapScreen(
             MapUiSettings(
                 zoomControlsEnabled = false,
                 myLocationButtonEnabled = false,
-                mapToolbarEnabled = false,
+                mapToolbarEnabled = true,
                 compassEnabled = true
             )
         }

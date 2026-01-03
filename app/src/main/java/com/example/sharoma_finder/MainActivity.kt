@@ -260,7 +260,8 @@ fun MainApp(
                 isStoreFavorite = { store -> dashboardViewModel.isFavorite(store) },
                 onFavoriteToggle = { store -> dashboardViewModel.toggleFavorite(store) },
                 allGlobalStores = dashboardViewModel.getGlobalStoreList(),
-                userLocation = dashboardViewModel.currentUserLocation
+                userLocation = dashboardViewModel.currentUserLocation,
+                lastUpdateTick = dashboardViewModel.lastCalculationTimestamp
             )
         }
 

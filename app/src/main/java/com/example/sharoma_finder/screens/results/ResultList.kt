@@ -46,7 +46,8 @@ fun ResultList(
     isStoreFavorite: (StoreModel) -> Boolean,
     onFavoriteToggle: (StoreModel) -> Unit,
     allGlobalStores: List<StoreModel> = emptyList(),
-    userLocation: Location? = null
+    userLocation: Location? = null,
+    lastUpdateTick: Long = 0L
 ) {
     val context = LocalContext.current
     val database = AppDatabase.getDatabase(context)
@@ -83,7 +84,7 @@ fun ResultList(
     }
     val subCategorySnapshot = remember(subCategoryList) { listToSnapshot(subCategoryList) }
 
-    LaunchedEffect(id, selectedTag, userLocation, searchText, allGlobalStores.size) {
+    LaunchedEffect(id, selectedTag, userLocation, searchText, allGlobalStores.size,lastUpdateTick) {
         isProcessingData = true
 
         withContext(Dispatchers.Default) {

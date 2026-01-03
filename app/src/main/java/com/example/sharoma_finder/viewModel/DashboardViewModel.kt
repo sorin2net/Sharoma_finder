@@ -8,8 +8,10 @@ import android.location.Location
 import android.net.Uri
 import android.util.Log
 import android.widget.Toast
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
@@ -87,7 +89,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
 
     var userName = mutableStateOf("Utilizatorule")
     var userImagePath = mutableStateOf<String?>(null)
-    var currentUserLocation: Location? = null
+    var currentUserLocation by mutableStateOf<Location?>(null)
         private set
 
     var userPoints = mutableStateOf(0)
@@ -99,9 +101,10 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
 
         viewModelScope.launch {
             checkLocalCache()
+            delay(500)
             observeLocalDatabase()
 
-            delay(1000)
+            delay(500)
             startUsageTimer()
 
             if (internetConsentManager.canUseInternet()) {
@@ -112,7 +115,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
 
     private suspend fun refreshEssentialData() = withContext(Dispatchers.IO) {
         dashboardRepository.refreshCategories()
-        delay(500)
+        delay(800)
         dashboardRepository.refreshBanners()
         delay(500)
         storeRepository.refreshStores()
@@ -357,7 +360,8 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     private var lastCalculationLocation: Location? = null
-    private var lastCalculationTimestamp: Long = 0L
+    var lastCalculationTimestamp by mutableStateOf(0L)
+        private set
 
     fun updateUserLocation(location: Location) {
         val distanceMoved = lastCalculationLocation?.distanceTo(location) ?: Float.MAX_VALUE
@@ -446,7 +450,11 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         analytics.logEvent(FirebaseAnalytics.Event.SELECT_CONTENT, bundle)
     }
 
-    fun getGlobalStoreList(): List<StoreModel> = allStoresRaw
+    fun getGlobalStoreList(): List<StoreModel> {
+        return synchronized(allStoresRaw) {
+            allStoresRaw.toList()
+        }
+    }
 
     private fun loadUserData() {
         userName.value = userManager.getName()
