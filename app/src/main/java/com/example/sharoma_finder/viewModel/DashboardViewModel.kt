@@ -39,14 +39,14 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
 
     private val favoritesManager = FavoritesManager(application.applicationContext)
     private val userManager = UserManager(application.applicationContext)
-
-
     private val internetConsentManager = InternetConsentManager(application.applicationContext)
+
     private var lastTimerSaveTimestamp: Long = 0L
     private val analytics = FirebaseAnalytics.getInstance(application.applicationContext)
     private var usageTimerJob: kotlinx.coroutines.Job? = null
     private val database = AppDatabase.getDatabase(application)
     private var isCheckingPermission = false
+
     private val storeRepository = StoreRepository(
         database.storeDao(),
         database.cacheMetadataDao()
@@ -91,10 +91,11 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     var userPoints = mutableStateOf(0)
 
     init {
+        loadUserData()
+        loadFavorites()
+        checkInternetConsent()
+
         viewModelScope.launch {
-            loadUserData()
-            loadFavorites()
-            checkInternetConsent()
             checkLocalCache()
             observeLocalDatabase()
 
@@ -125,7 +126,6 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         userManager.savePoints(userPoints.value)
     }
 
-
     fun startUsageTimer() {
         if (usageTimerJob?.isActive == true) return
 
@@ -140,12 +140,14 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             }
         }
     }
+
     fun stopUsageTimer() {
         usageTimerJob?.cancel()
         usageTimerJob = null
 
         userManager.saveLastTimerTimestamp(System.currentTimeMillis())
     }
+
     fun onStoreOpenedOnMap() {
         addPoints(25)
     }
@@ -177,11 +179,9 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-
     fun onAppResumed() {
         checkLocationPermission()
     }
-
 
     fun onInternetSwitchToggled(enabled: Boolean, onShowConsentDialog: () -> Unit) {
         if (enabled) {
@@ -195,18 +195,17 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-
     fun grantInternetConsentFromProfile() {
         internetConsentManager.grantConsent()
         enableInternetFeatures()
     }
 
     fun enableInternetFeatures() {
-        if (internetConsentManager.isInternetAvailable()) {
+        if (internetConsentManager.canUseInternet()) {
             hasInternetAccess.value = true
             refreshDataFromNetwork()
         } else {
-            hasInternetAccess.value = true
+            hasInternetAccess.value = false
         }
     }
 
@@ -221,7 +220,6 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                 val cachedCategories = database.categoryDao().getAllCategoriesSync()
                 val cachedBanners = database.bannerDao().getAllBannersSync()
 
-
                 withContext(Dispatchers.Main) {
                     if (cachedStores.isNotEmpty()) {
                         allStoresRaw.clear()
@@ -233,7 +231,6 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                             processData()
                         }
                     }
-
                     isDataLoaded.value = true
                 }
             } catch (e: Exception) {
@@ -247,7 +244,6 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     private fun observeLocalDatabase() {
         localStoreObserver = Observer { stores ->
             if (stores != null) {
-
                 synchronized(allStoresRaw) {
                     allStoresRaw.clear()
                     allStoresRaw.addAll(stores)
@@ -286,6 +282,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                     launch { dashboardRepository.refreshSubCategories() }
                 }
             } catch (e: Exception) {
+                // Fail silently
             }
 
             delay(5000)
@@ -309,8 +306,6 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
 
         viewModelScope.launch {
             try {
-
-
                 withContext(Dispatchers.IO) {
                     storeRepository.refreshStores(forceRefresh = true)
                     val imageLoader = Coil.imageLoader(application)
@@ -323,10 +318,6 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                     dashboardRepository.refreshCategories()
                     dashboardRepository.refreshBanners()
                     dashboardRepository.refreshSubCategories()
-                }
-
-                withContext(Dispatchers.Main) {
-
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
@@ -353,24 +344,26 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                     .addOnSuccessListener { location ->
                         if (location != null) {
                             updateUserLocation(location)
-                        } else {
                         }
                     }
                     .addOnFailureListener { e ->
+                        // Handle failure
                     }
             } catch (e: SecurityException) {
+                // Handle exception
             }
-        } else {
         }
     }
 
     private var lastCalculationLocation: Location? = null
+    private var lastCalculationTimestamp: Long = 0L
 
     fun updateUserLocation(location: Location) {
-
         val distanceMoved = lastCalculationLocation?.distanceTo(location) ?: Float.MAX_VALUE
+        val timeSinceLastCalc = System.currentTimeMillis() - lastCalculationTimestamp
+        val shouldRecalculate = distanceMoved >= 10f || timeSinceLastCalc > 120_000L
 
-        if (distanceMoved < 20f) return
+        if (!shouldRecalculate) return
 
         currentUserLocation = location
         lastCalculationLocation = location
@@ -388,17 +381,23 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             val userLoc = currentUserLocation ?: return@withContext
             val results = FloatArray(1)
 
-            storesCopy.forEach { store ->
-
+            val updatedStores = storesCopy.map { originalStore ->
                 android.location.Location.distanceBetween(
                     userLoc.latitude, userLoc.longitude,
-                    store.Latitude, store.Longitude,
+                    originalStore.Latitude, originalStore.Longitude,
                     results
                 )
-                store.distanceToUser = results[0]
+                originalStore.copy().apply {
+                    distanceToUser = results[0]
+                }
             }
 
-            val sortedAll = storesCopy.sortedBy { if (it.distanceToUser < 0) Float.MAX_VALUE else it.distanceToUser }
+            synchronized(allStoresRaw) {
+                allStoresRaw.clear()
+                allStoresRaw.addAll(updatedStores)
+            }
+
+            val sortedAll = updatedStores.sortedBy { if (it.distanceToUser < 0) Float.MAX_VALUE else it.distanceToUser }
 
             withContext(Dispatchers.Main) {
                 nearestStoresTop5.clear()
@@ -412,6 +411,8 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
 
                 favoriteStores.clear()
                 favoriteStores.addAll(sortedAll.filter { isFavorite(it) })
+
+                lastCalculationTimestamp = System.currentTimeMillis()
             }
         }
     }
@@ -473,7 +474,6 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                         userImagePath.value = internalPath
                         userManager.saveImagePath(internalPath)
                         Toast.makeText(getApplication(), "Poză actualizată! (-100 XP)", Toast.LENGTH_SHORT).show()
-                    } else {
                     }
                 }
             }
@@ -511,13 +511,11 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             favoriteStoreIds.add(uniqueKey)
             addPoints(10)
         }
-
         processData()
     }
 
     fun loadCategory(): LiveData<List<CategoryModel>> = dashboardRepository.allCategories
     fun loadBanner(): LiveData<List<BannerModel>> = dashboardRepository.allBanners
-
 
     fun getUserRank(): String {
         val points = userPoints.value
@@ -543,7 +541,6 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             points in 750..999 -> 750 to 1000
             else -> return 1.0f
         }
-
         return ((points - start).toFloat() / (end - start)).coerceIn(0f, 1f)
     }
 }
