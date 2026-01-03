@@ -33,10 +33,12 @@ import com.google.firebase.analytics.FirebaseAnalytics
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 class DashboardViewModel(application: Application) : AndroidViewModel(application) {
-
+    private val recalculationMutex = Mutex()
     private val favoritesManager = FavoritesManager(application.applicationContext)
     private val userManager = UserManager(application.applicationContext)
     private val internetConsentManager = InternetConsentManager(application.applicationContext)
@@ -149,7 +151,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun onStoreOpenedOnMap() {
-        addPoints(25)
+        addPoints(10)
     }
 
     private fun checkInternetConsent() {
@@ -244,20 +246,19 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     private fun observeLocalDatabase() {
         localStoreObserver = Observer { stores ->
             if (stores != null) {
-                synchronized(allStoresRaw) {
-                    allStoresRaw.clear()
-                    allStoresRaw.addAll(stores)
-                }
+                viewModelScope.launch(Dispatchers.Default) {
 
-                if (currentUserLocation != null) {
-                    viewModelScope.launch(Dispatchers.Default) {
-                        recalculateDistances()
+                    synchronized(allStoresRaw) {
+                        allStoresRaw.clear()
+                        allStoresRaw.addAll(stores)
                     }
-                } else {
-                    processData()
-                }
 
-                if (!isDataLoaded.value) {
+                    if (currentUserLocation != null) {
+                        recalculateDistances()
+                    } else {
+                        processData()
+                    }
+
                     isDataLoaded.value = true
                 }
             }
@@ -374,51 +375,55 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     private suspend fun recalculateDistances() {
-        withContext(Dispatchers.Default) {
-            val storesCopy = synchronized(allStoresRaw) { allStoresRaw.toList() }
-            if (storesCopy.isEmpty()) return@withContext
+        recalculationMutex.withLock {
+            withContext(Dispatchers.Default) {
+                val storesCopy = synchronized(allStoresRaw) { allStoresRaw.toList() }
+                if (storesCopy.isEmpty()) return@withContext
 
-            val userLoc = currentUserLocation ?: return@withContext
-            val results = FloatArray(1)
+                val userLoc = currentUserLocation ?: return@withContext
+                val results = FloatArray(1)
 
-            val updatedStores = storesCopy.map { originalStore ->
-                android.location.Location.distanceBetween(
-                    userLoc.latitude, userLoc.longitude,
-                    originalStore.Latitude, originalStore.Longitude,
-                    results
-                )
-                originalStore.copy().apply {
-                    distanceToUser = results[0]
+                val updatedStores = storesCopy.map { originalStore ->
+                    android.location.Location.distanceBetween(
+                        userLoc.latitude, userLoc.longitude,
+                        originalStore.Latitude, originalStore.Longitude,
+                        results
+                    )
+                    originalStore.copy().apply {
+                        distanceToUser = results[0]
+                    }
                 }
-            }
 
-            synchronized(allStoresRaw) {
-                allStoresRaw.clear()
-                allStoresRaw.addAll(updatedStores)
-            }
+                synchronized(allStoresRaw) {
+                    allStoresRaw.clear()
+                    allStoresRaw.addAll(updatedStores)
+                }
 
-            val sortedAll = updatedStores.sortedBy { if (it.distanceToUser < 0) Float.MAX_VALUE else it.distanceToUser }
+                val sortedAll = updatedStores.sortedBy {
+                    if (it.distanceToUser < 0) Float.MAX_VALUE else it.distanceToUser
+                }
 
-            withContext(Dispatchers.Main) {
-                nearestStoresTop5.clear()
-                nearestStoresTop5.addAll(sortedAll.take(5))
+                withContext(Dispatchers.Main) {
+                    nearestStoresTop5.clear()
+                    nearestStoresTop5.addAll(sortedAll.take(5))
 
-                nearestStoresAllSorted.clear()
-                nearestStoresAllSorted.addAll(sortedAll)
+                    nearestStoresAllSorted.clear()
+                    nearestStoresAllSorted.addAll(sortedAll)
 
-                popularStores.clear()
-                popularStores.addAll(sortedAll.filter { it.IsPopular })
+                    popularStores.clear()
+                    popularStores.addAll(sortedAll.filter { it.IsPopular })
 
-                favoriteStores.clear()
-                favoriteStores.addAll(sortedAll.filter { isFavorite(it) })
+                    favoriteStores.clear()
+                    favoriteStores.addAll(sortedAll.filter { isFavorite(it) })
 
-                lastCalculationTimestamp = System.currentTimeMillis()
+                    lastCalculationTimestamp = System.currentTimeMillis()
+                }
             }
         }
     }
 
     private fun processData() {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.Default) {
             recalculateDistances()
         }
     }
