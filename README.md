@@ -87,7 +87,7 @@ Dacă dorești să rulezi proiectul local, vei avea nevoie de propriile chei API
 * [x] Sistem Favorite & Search
 * [x] Roata Indecisului
 * [x] Publicare în Closed Beta (Google Play)
-* [ ] Lansare oficială Publică
+* [x] Lansare oficială Publică
 
 ## 🤝 Credite & Inspirație
 
